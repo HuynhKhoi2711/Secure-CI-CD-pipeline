@@ -2,3 +2,6 @@
 *.tfstate*
 .terraform.lock.hcl
 .venv
+.log
+.md
+Test/*
