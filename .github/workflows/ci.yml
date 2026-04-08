@@ -6,7 +6,7 @@ on:
   push:
     branches: [ "main", "dev" ] # Chạy khi có code push lên nhánh main hoặc dev
   pull_request:
-    branches: [ "main" ]        # Chạy khi có ai đó tạo Pull Request đòi gộp code vào main
+    branches: [ "main" ]         # Chạy khi có ai đó tạo Pull Request đòi gộp code vào main
 
 # 2. CẤU HÌNH JOBS: Các công việc cần làm
 jobs:
@@ -28,25 +28,59 @@ jobs:
           terraform validate
 
   # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST) ---
-  sast-scan:
-    name: 2. SAST Scanning (Semgrep)
-    needs: terraform-check 
+  semgrep-scan:
+    name: 2a. Semgrep (Multi-rules)
+    needs: terraform-check
     runs-on: ubuntu-latest
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
-
       - name: 2. Run Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
-          config: >- 
-            p/security-audit
-            p/nodejs
+          config: p/security-audit p/nodejs p/owasp-top-ten
+
+  python-scan:
+    name: 2b. Bandit (Python SAST)
+    needs: terraform-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+      - name: 2. Run Bandit Scan
+        run: |
+          pip install bandit
+          bandit -r . -f txt || true 
+
+  golang-scan:
+    name: 2c. Gosec (Go SAST)
+    needs: terraform-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+      - name: 2. Run Gosec Security Scan
+        uses: securego/gosec@master
+        with:
+          args: ./...
+
+  javascript-scan:
+    name: 2d. ESLint (JS Security)
+    needs: terraform-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+      - name: 2. Run ESLint Scan
+        run: |
+          npm install
+          npx eslint . --ext .js || true
 
   # ---  DOCKER BUILD  ---
   build-and-test:
     name: Build & Test Application
-    needs: sast-scan
+    # Cập nhật: Chỉ chạy khi tất cả 4 công cụ quét SAST ở trên đã hoàn thành
+    needs: [semgrep-scan, python-scan, golang-scan, javascript-scan]
     runs-on: ubuntu-latest      # Mượn một máy ảo Ubuntu miễn phí của GitHub để chạy
 
     steps:
