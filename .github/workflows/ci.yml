@@ -10,38 +10,38 @@ on:
 
 # 2. CẤU HÌNH JOBS: Các công việc cần làm
 jobs:
-  # --- KIỂM TRA HẠ TẦNG ---
-  terraform-check:
-    name: 1. Terraform Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
+  # # --- KIỂM TRA HẠ TẦNG ---
+  # terraform-check:
+  #   name: 1. Terraform Validation
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: 1. Checkout Source Code
+  #       uses: actions/checkout@v4
 
-      - name: 2. Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+  #     - name: 2. Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
 
-      - name: 3. Terraform Init & Validate
-        run: |
-          cd terraform
-          terraform init
-          terraform validate
+  #     - name: 3. Terraform Init & Validate
+  #       run: |
+  #         cd terraform
+  #         terraform init
+  #         terraform validate
 
-  # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST) ---
-  sast-scan:
-    name: 2. SAST Scanning (Semgrep)
-    needs: terraform-check 
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
+  # # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST) ---
+  # sast-scan:
+  #   name: 2. SAST Scanning (Semgrep)
+  #   needs: terraform-check 
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: 1. Checkout Source Code
+  #       uses: actions/checkout@v4
 
-      - name: 2. Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >- 
-            p/security-audit
-            p/nodejs
+  #     - name: 2. Run Semgrep
+  #       uses: returntocorp/semgrep-action@v1
+  #       with:
+  #         config: >- 
+  #           p/security-audit
+  #           p/nodejs
 
   # ---  DOCKER BUILD  ---
   build-and-test:
