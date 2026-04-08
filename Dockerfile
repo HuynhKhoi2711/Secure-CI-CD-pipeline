@@ -10,7 +10,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # 3. Cài đặt các thư viện (Lúc này thư mục node_modules sẽ được tạo ra)
-RUN npm install
+RUN npm install --production --no-cache
 
 # ==========================================
 # STAGE 1: PRODUCTION (Chạy ứng dụng)
