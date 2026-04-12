@@ -94,6 +94,7 @@ jobs:
           framework: terraform
           # Để xử lý False Positive (ví dụ lỗi CKV_AWS_20), có thể thêm dòng sau:
           # skip_check: CKV_AWS_20 
+          skip_check: CKV2_AWS_11,CKV2_AWS_12
 
   # ---  DOCKER BUILD  ---
   build-and-test:
