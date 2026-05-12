@@ -1,33 +1,18 @@
-# ==========================================
-# STAGE 0: BUILD
-# ==========================================
-FROM node:18-alpine AS builder
-
-WORKDIR /usr/src/app
-
-# Trỏ đúng đường dẫn vào thư mục chứa package.json của NodeGoat
-COPY app/NodeJS/NodeGoat/package*.json ./
-
-# (Mẹo nhỏ: Sửa --production thành --omit=dev để hết cảnh báo màu vàng của npm)
-RUN npm install --omit=dev --no-cache
-
-# ==========================================
-# STAGE 1: PRODUCTION
-# ==========================================
-FROM node:18-alpine
-
-ENV USER=node
-ENV WORKDIR=/home/node/app
-
+FROM node:12-alpine
+ENV WORKDIR /usr/src/app/
 WORKDIR $WORKDIR
+COPY package*.json $WORKDIR
+RUN npm install --production --no-cache
 
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-
-# Trỏ đúng đường dẫn để copy mã nguồn của NodeGoat vào image
-COPY --chown=node:node app/NodeJS/NodeGoat/ .
-
+FROM node:12-alpine
+ENV USER node
+ENV WORKDIR /home/$USER/app
+WORKDIR $WORKDIR
+COPY --from=0 /usr/src/app/node_modules node_modules
+RUN chown $USER:$USER $WORKDIR
+COPY --chown=node . $WORKDIR
+# In production environment uncomment the next line
+#RUN chown -R $USER:$USER /home/$USER && chmod -R g-s,o-rx /home/$USER && chmod -R o-wrx $WORKDIR
+# Then all further actions including running the containers should be done under non-root user.
 USER $USER
-
-EXPOSE 4000 
-# (NodeGoat mặc định chạy port 4000, em có thể check lại trong config)
-CMD ["npm", "start"]
+EXPOSE 4000
