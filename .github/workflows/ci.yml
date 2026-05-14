@@ -208,6 +208,8 @@ jobs:
     needs: build-and-test
     if: always() # Đảm bảo bước này vẫn chạy dù có lỗi ở các bước trước (ví dụ: quét bảo mật phát hiện lỗ hổng)
     runs-on: ubuntu-latest
+    env:
+      KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
@@ -234,7 +236,6 @@ jobs:
           TF_VAR_ghcr_pat: ${{ secrets.GHCR_PAT }}
           TF_VAR_app_image: ${{ needs.build-and-test.outputs.full_image_name }}
           TF_VAR_cluster_name: nodegoat-cluster
-          KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
         working-directory: terraform
 
         run: |
@@ -245,7 +246,6 @@ jobs:
         env:
           APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
           # Trỏ KUBECONFIG vào file mà Terraform vừa xuất ra
-          KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
         run: |
           # 1. Thay thế biến image vào các file YAML
           # Lưu ý: Lệnh này tìm chuỗi ${app_image} và thay bằng tag thực tế
