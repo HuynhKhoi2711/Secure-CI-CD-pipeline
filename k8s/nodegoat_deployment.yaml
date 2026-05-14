@@ -27,17 +27,3 @@ spec:
         command: [ "sh", "-c" ]
         args:
         - "until nc -z -w 2 mongodb 27017 && echo 'mongodb is ready for connections' && node artifacts/db-reset.js && npm start; do sleep 2; done"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nodegoat-svc
-  namespace: nodegoat-staging
-spec:
-  type: ClusterIP
-  selector:
-    app: nodegoat
-  ports:
-  - protocol: TCP
-    port: 4000
-    targetPort: 4000
