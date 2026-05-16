@@ -1,0 +1,11 @@
+.terraform/
+# *.pem
+# *.key
+# *.crt
+*.tfstate*
+*terraform.lock.hcl
+.venv
+.log
+.md
+Test/*
+
