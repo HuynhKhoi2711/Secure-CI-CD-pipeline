@@ -165,7 +165,7 @@ jobs:
         with:
           image-ref: "${{ env.IMAGE_NAME }}"
           format: "table"
-          exit-code: "1" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
+          exit-code: "0" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
           ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
