@@ -38,7 +38,7 @@ resource "aws_security_group" "staging_sg" {
 # 2. TẠO MÁY ẢO EC2 THUỘC GÓI MIỄN PHÍ (AN TOÀN TUYỆT ĐỐI)
 resource "aws_instance" "staging_server" {
   ami           = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS chính chủ tại vùng us-east-1
-  instance_type = "t2.micro"             # BẮT BUỘC: Thuộc gói AWS Free Tier
+  instance_type = "t3.micro"             # BẮT BUỘC: Thuộc gói AWS Free Tier
 
   vpc_security_group_ids = [aws_security_group.staging_sg.id]
   key_name               = "nodegoat-staging-key" 
