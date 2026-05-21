@@ -286,6 +286,7 @@ jobs:
       - name: 9. Extract Staging Endpoint
         id: get-endpoint
         run: |
+          kubectl port-forward svc/nodegoat-app 4000:4000 -n nodegoat-staging &
           echo "Chờ 30s để K8s cấp External IP/Hostname..."
           sleep 30
           
