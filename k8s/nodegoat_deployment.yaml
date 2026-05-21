@@ -19,7 +19,7 @@ spec:
       - name: nodegoat
         # Thay thế bằng image bạn đã build ở Bước 1
         image: ${app_image}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 4000
         env:

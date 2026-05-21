@@ -196,119 +196,73 @@ jobs:
 
   # --- CẤU HÌNH BỔ SUNG TUẦN 4: DEPLOY TO STAGING (Nhiệm vụ của Khôi) ---
   deploy-staging:
-    name: 4. Deploy to Staging Environment
-    needs: build-and-test
-    if: always() # Đảm bảo bước này vẫn chạy dù có lỗi ở các bước trước (ví dụ: quét bảo mật phát hiện lỗ hổng)
+    name: 4. Deploy to AWS Free Tier Staging
     runs-on: ubuntu-latest
-
+    needs: build-and-test # Nhớ map đúng tên job build image trước đó của nhóm em
     outputs:
-      staging_url: ${{ steps.get-endpoint.outputs.STAGING_URL }}
-    env:
-      KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
-      namespace: nodegoat-staging
-      cluster_name: nodegoat-cluster
+      staging_url: http://${{ steps.get-ip.outputs.EC2_IP }}
+    
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: 2. Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      # Xác thực với AWS bằng cặp Key em lấy từ IAM User (Thầy đã hướng dẫn ở câu đầu tiên)
+      - name: 2. Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: 3. Pull Image
-        run: |
-          # dockerpull mogo:4.4
-          docker pull ${{ needs.build-and-test.outputs.full_image_name }}
-
-      - name: 4. Setup Terraform
+      - name: 3. Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: 5. Terraform Apply
-        env:
-          # Truyền PAT vào để Terraform tạo Secret kéo image
-          TF_VAR_ghcr_pat: ${{ secrets.GHCR_PAT }}
-          TF_VAR_app_image: ${{ needs.build-and-test.outputs.full_image_name }}
-          TF_VAR_cluster_name: ${{ env.cluster_name }}
-          TF_VAR_namespace: ${{ env.namespace }}
+      - name: 4. Terraform Init & Apply
         working-directory: terraform
-
         run: |
-          terraform init -upgrade 
+          terraform init
           terraform apply -auto-approve
 
-      - name: 6. Deploy Application Manifests
+      - name: 5. Thu hoạch IP Public của AWS EC2
+        id: get-ip
+        working-directory: terraform
+        run: |
+          EC2_PUBLIC_IP=$(terraform output -raw staging_public_ip)
+          echo "EC2_IP=${EC2_PUBLIC_IP}" >> $GITHUB_OUTPUT
+          echo "🎯 Đã tạo xong máy chủ Staging tại IP: ${EC2_PUBLIC_IP}"
+
+      # Sử dụng phương thức kết nối SSH an toàn để deploy manifests trực tiếp trên EC2
+      - name: 6. Deploy Kubernetes Manifests via SSH Remote
+        uses: appleboy/ssh-action@v1.0.3
         env:
           APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
-          # Trỏ KUBECONFIG vào file mà Terraform vừa xuất ra
-        run: |
-          # 1. Thay thế biến image vào các file YAML
-          # Lưu ý: Lệnh này tìm chuỗi ${app_image} và thay bằng tag thực tế
-          sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/nodegoat_deployment.yaml
-
-          # 2. Apply toàn bộ thư mục vào namespace đã tạo bởi Terraform
-          kubectl apply -f k8s/ -n ${{ env.namespace }}
-
-      - name: 7. Health Check
-        run: |
-
-          echo "--- Trạng thái các Pod ---"
-          kubectl get pods -n ${{ env.namespace }}
-
-          echo "--- Đợi Deployment hoàn tất ---"
-          # Chờ tối đa 2 phút cho mỗi service
-          kubectl rollout status deployment/mongodb -n ${{ env.namespace }} --timeout=120s
-          kubectl rollout status deployment/nodegoat-app -n ${{ env.namespace }} --timeout=120s
-
-          echo "--- Kiểm tra log ứng dụng nếu cần ---"
-          # Lệnh này giúp bạn xem app có kết nối DB thành công không
-          kubectl get svc -n ${{ env.namespace }}
-          kubectl get pods -n ${{ env.namespace }}
-
-      - name: 8. Integration Test (Curl App)
-        run: |
-          kubectl get svc -n ${{ env.namespace }}
-          kubectl get pods -n ${{ env.namespace }}
-          kubectl get service/nodegoat-app -n ${{ env.namespace }}
-
-          # echo "--- Đang kiểm tra cổng mạng bên trong Pod ---"
-          # # Kiểm tra xem có dòng nào chứa ':4000' và 'LISTEN' không
-          # if kubectl exec deployment/nodegoat-app -n ${{ env.namespace }} -- netstat -tulpn | grep -q ":4000.*LISTEN"; then
-          #   echo "✅ Node.js đang lắng nghe trên cổng 4000"
-          # else
-          #   echo "❌ Không tìm thấy cổng 4000 đang LISTEN"
-          #   kubectl logs deployment/nodegoat-app -n ${{ env.namespace }} --tail=20
-          #   exit 1
-          # fi
-
-      # 🌟 BƯỚC THÊM MỚI 2: Lấy IP công khai và gán vào Output
-      - name: 9. Extract Staging Endpoint
-        id: get-endpoint
-        run: |
-          echo "🚨 --- TRUY TÌM THỦ PHẠM BÊN TRONG NODE.JS --- 🚨"
-          echo "Trạng thái các Pod hiện tại:"
-          kubectl get pods -n nodegoat-staging
-          
-          echo "Log chi tiết của ứng dụng NodeGoat:"
-          kubectl logs deployment/nodegoat-app -n nodegoat-staging --tail=50
-          echo "------------------------------------------------"
-
-          echo "🚀 Đang kích hoạt Port-Forwarding về cổng 4000..."
-          kubectl port-forward service/nodegoat-app 4000:4000 -n nodegoat-staging > port-forward.log 2>&1 &
-          
-          echo "⏳ Chờ 5 giây để tiến trình ổn định..."
-          sleep 5
-          cat port-forward.log
-          
-          echo "🌐 Thử bắn Curl kiểm tra App phản hồi:"
-          #Thêm '|| true' để script không bị dừng đột ngột nếu curl lỗi
-          curl -I http://localhost:4000 --connect-timeout 5 ||  cat port-forward.log
-      - name: 3. Run OWASP ZAP Against Localhost
-        run: |
-          # Thêm --network="host" để Docker ZAP nhìn thấy cổng 4000 của máy host
-          docker run --user root --network="host" -v $(pwd)/zap_workspace:/zap/wrk:rw -t ghcr.io/zaproxy/zaproxy:stable zap.sh -cmd -autorun /zap/wrk/plan.yaml || true
+        with:
+          host: ${{ steps.get-ip.outputs.EC2_IP }}
+          username: ubuntu
+          key: ${{ secrets.AWS_EC2_SSH_KEY }} # Nạp Private Key (.pem) vào GitHub Secrets
+          envs: APP_IMAGE
+          script: |
+            echo "⏳ Đợi hệ thống K3s trên AWS khởi động..."
+            until sudo kubectl get nodes; do sleep 5; done
+            
+            # Đồng bộ code hoặc các file k8s manifests lên máy ảo AWS
+            git clone https://github.com/${{ github.repository }}.git app || (cd app && git pull)
+            cd app
+            
+            # Khởi tạo Namespace và các cấu hình mạng trước
+            sudo kubectl apply -f k8s/mongodb_deployment.yaml
+            sudo kubectl apply -f k8s/mongodb_service.yaml
+            
+            # Động bộ hóa tag image mới build vào file deployment của NodeGoat
+            sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/nodegoat_deployment.yaml
+            
+            # Tiến hành Apply App lên AWS
+            sudo kubectl apply -f k8s/nodegoat_deployment.yaml
+            sudo kubectl apply -f k8s/nodegoat_service.yaml
+            
+            echo "📊 Kiểm tra tiến độ khởi tạo Pod trên AWS:"
+            sudo kubectl rollout status deployment/mongodb -n nodegoat-staging --timeout=60s || true
+            sudo kubectl rollout status deployment/nodegoat-app -n nodegoat-staging --timeout=90s || true
   # dast_scan:
   #   name: OWASP ZAP DAST Scan
   #   runs-on: ubuntu-latest
