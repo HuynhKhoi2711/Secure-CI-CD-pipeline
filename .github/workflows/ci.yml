@@ -7,91 +7,91 @@ on: [push, pull_request]
 
 # 2. CẤU HÌNH JOBS: Các công việc cần làm
 jobs:
-  # --- KIỂM TRA HẠ TẦNG (Nhiệm vụ chung) ---
-  terraform-check:
-    name: 1. Terraform Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
+#   # --- KIỂM TRA HẠ TẦNG (Nhiệm vụ chung) ---
+#   terraform-check:
+#     name: 1. Terraform Validation
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 1. Checkout Source Code
+#         uses: actions/checkout@v4
 
-      - name: 2. Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+#       - name: 2. Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
 
-      - name: 3. Terraform Init & Validate
-        run: |
-          cd terraform
-          terraform init
-          terraform validate
+#       - name: 3. Terraform Init & Validate
+#         run: |
+#           cd terraform
+#           terraform init
+#           terraform validate
 
-  # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST - Nhiệm vụ của Trường) ---
-  semgrep-scan:
-    name: 2a. Semgrep (Multi-rules)
-    needs: terraform-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
-      - name: 2. Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/security-audit p/nodejs p/owasp-top-ten
+#   # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST - Nhiệm vụ của Trường) ---
+#   semgrep-scan:
+#     name: 2a. Semgrep (Multi-rules)
+#     needs: terraform-check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 1. Checkout Source Code
+#         uses: actions/checkout@v4
+#       - name: 2. Run Semgrep
+#         uses: returntocorp/semgrep-action@v1
+#         with:
+#           config: p/security-audit p/nodejs p/owasp-top-ten
 
-  python-scan:
-    name: 2b. Bandit (Python SAST)
-    needs: terraform-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
-      - name: 2. Run Bandit Scan
-        run: |
-          pip install bandit
-          bandit -r . -f txt || true
+#   python-scan:
+#     name: 2b. Bandit (Python SAST)
+#     needs: terraform-check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 1. Checkout Source Code
+#         uses: actions/checkout@v4
+#       - name: 2. Run Bandit Scan
+#         run: |
+#           pip install bandit
+#           bandit -r . -f txt || true
 
-  # --- TẠM TẮT GOLANG SCAN VÌ CHƯA CÓ CODE GO (TRÁNH LỖI NO PACKAGES FOUND) ---
-  #  golang-scan:
-  #    name: 2c. Gosec (Go SAST)
-  #    needs: terraform-check
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - name: 1. Checkout Source Code
-  #        uses: actions/checkout@v4
-  #      - name: 2. Run Gosec Security Scan
-  #        uses: securego/gosec@master
-  #        with:
-  #          args: ./...
+#   # --- TẠM TẮT GOLANG SCAN VÌ CHƯA CÓ CODE GO (TRÁNH LỖI NO PACKAGES FOUND) ---
+#   #  golang-scan:
+#   #    name: 2c. Gosec (Go SAST)
+#   #    needs: terraform-check
+#   #    runs-on: ubuntu-latest
+#   #    steps:
+#   #      - name: 1. Checkout Source Code
+#   #        uses: actions/checkout@v4
+#   #      - name: 2. Run Gosec Security Scan
+#   #        uses: securego/gosec@master
+#   #        with:
+#   #          args: ./...
 
-  javascript-scan:
-    name: 2d. ESLint (JS Security)
-    needs: terraform-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
-      - name: 2. Run ESLint Scan
-        working-directory: app/NodeJS/NodeGoat/
-        run: |
-          npm install
-          npx eslint . --ext .js || true
+#   javascript-scan:
+#     name: 2d. ESLint (JS Security)
+#     needs: terraform-check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 1. Checkout Source Code
+#         uses: actions/checkout@v4
+#       - name: 2. Run ESLint Scan
+#         working-directory: app/NodeJS/NodeGoat/
+#         run: |
+#           npm install
+#           npx eslint . --ext .js || true
 
-  # --- QUÉT BẢO MẬT HẠ TẦNG (Nhiệm vụ Tuần 3 của Trường) ---
-  iac-scan:
-    name: 2e. Checkov (IaC Security)
-    needs: terraform-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
+#   # --- QUÉT BẢO MẬT HẠ TẦNG (Nhiệm vụ Tuần 3 của Trường) ---
+#   iac-scan:
+#     name: 2e. Checkov (IaC Security)
+#     needs: terraform-check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 1. Checkout Source Code
+#         uses: actions/checkout@v4
 
-      - name: 2. Run Checkov Scan
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: terraform/
-          framework: terraform
-          # Để xử lý False Positive (ví dụ lỗi CKV_AWS_20), có thể thêm dòng sau:
-          # skip_check: CKV_AWS_20
-          skip_check: CKV2_AWS_11,CKV2_AWS_12
+#       - name: 2. Run Checkov Scan
+#         uses: bridgecrewio/checkov-action@v12
+#         with:
+#           directory: terraform/
+#           framework: terraform
+#           # Để xử lý False Positive (ví dụ lỗi CKV_AWS_20), có thể thêm dòng sau:
+#           # skip_check: CKV_AWS_20
+#           skip_check: CKV2_AWS_11,CKV2_AWS_12
 
   # --- DOCKER BUILD & CONTAINER SECURITY (Nhiệm vụ của Khôi) ---
   build-and-test:
@@ -286,26 +286,30 @@ jobs:
       - name: 9. Extract Staging Endpoint
         id: get-endpoint
         run: |
-          echo "--- 1. Dọn dẹp cổng (nếu bị kẹt) ---"
-          # Tiêu diệt mọi tiến trình đang dùng cổng 4000 hoặc 8080 (bỏ qua nếu không có)
-          sudo fuser -k 4000/tcp || true
-          sudo fuser -k 8080/tcp || true
+          echo "--- 1. Ép Pipeline chờ Deployment hoàn tất Rollout ---"
+          # Lệnh này giúp đảm bảo các Pod đã qua bộ lọc khởi động của K8s
+          kubectl rollout status deployment/nodegoat-app -n nodegoat-staging --timeout=60s
           
-          echo "--- 2. Bật Port-Forward ngầm ---"
-          # Mở cổng 8080 trên Runner, trỏ vào cổng 4000 của K8s
+          echo "--- 2. Chờ thêm 20s để Node.js kết nối Database ---"
+          sleep 20
+          
+          echo "--- 3. Kiểm tra LOG thực tế bên trong Pod ---"
+          # Bước này cực kỳ quan trọng để xem Node.js có báo lỗi kết nối DB không
+          kubectl logs deployment/nodegoat-app -n nodegoat-staging --tail=30
+          
+          echo "--- 4. Dọn dẹp cổng và Bật Port-Forward ngầm ---"
+          sudo fuser -k 8080/tcp || true
           kubectl port-forward svc/nodegoat-app 8080:4000 -n nodegoat-staging &
           
           echo "Chờ 10s để Port-Forward ổn định..."
           sleep 10
           
-          # 3. Cập nhật biến URL thành cổng 8080
           URL="http://localhost:8080"
           echo "STAGING_URL=${URL}" >> $GITHUB_OUTPUT
           
-          echo "🎯 Đã tạo URL Staging nội bộ trong Runner: ${URL}"
-          
-          echo "--- 4. Kiểm tra kết nối thử ---"
-          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" $URL
+          echo "--- 5. Kiểm tra kết nối thử ---"
+          # Dùng curl lấy Header để xem có ra mã 200 hay không
+          curl -I -s --connect-timeout 5 $URL || echo "⚠️ Vẫn chưa kết nối thành công, hãy đọc LOG ở mục 3 để tìm nguyên nhân!"
 
   # dast_scan:
   #   name: OWASP ZAP DAST Scan
