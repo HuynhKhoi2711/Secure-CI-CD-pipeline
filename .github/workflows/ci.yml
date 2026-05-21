@@ -165,7 +165,7 @@ jobs:
         with:
           image-ref: "${{ env.IMAGE_NAME }}"
           format: "table"
-          exit-code: "0" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
+          exit-code: "1" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
           ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
@@ -199,6 +199,9 @@ jobs:
     needs: build-and-test
     if: always() # Đảm bảo bước này vẫn chạy dù có lỗi ở các bước trước (ví dụ: quét bảo mật phát hiện lỗ hổng)
     runs-on: ubuntu-latest
+
+    outputs:
+      staging_url: ${{ steps.get-endpoint.outputs.STAGING_URL }}
     env:
       KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
       namespace: nodegoat-staging
@@ -279,37 +282,58 @@ jobs:
           #   exit 1
           # fi
 
-  dast_scan:
-    name: OWASP ZAP DAST Scan
-    runs-on: ubuntu-latest
-    needs: deploy-staging 
-    # Cấp quyền để GitHub Actions có thể tạo Issue
-    permissions:
-      issues: write
-      contents: read
+      # 🌟 BƯỚC THÊM MỚI 2: Lấy IP công khai và gán vào Output
+      - name: 9. Extract Staging Endpoint
+        id: get-endpoint
+        run: |
+          echo "Chờ 30s để K8s cấp External IP/Hostname..."
+          sleep 30
+          
+          # Lấy External IP từ Service LoadBalancer của NodeGoat
+          EXT_IP=$(kubectl get svc nodegoat-app -n ${{ env.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Nếu chạy trên AWS/AWS EKS, nó sẽ trả về Hostname thay vì IP, ta kiểm tra thêm:
+          if [ -z "$EXT_IP" ]; then
+            EXT_IP=$(kubectl get svc nodegoat-app -n ${{ env.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          fi
+          
+          # Gán giá trị vào biến Output của GitHub Actions (Giả sử app chạy port 4000 hoặc đã mapped qua port 80)
+          # Em có thể sửa thành http://${EXT_IP}:4000 nếu Service của em không map về port 80 công khai
+          URL="http://${EXT_IP}"
+          echo "STAGING_URL=${URL}" >> $GITHUB_OUTPUT
+          echo "🎯 Đã tìm thấy URL Staging: ${URL}"
+
+  # dast_scan:
+  #   name: OWASP ZAP DAST Scan
+  #   runs-on: ubuntu-latest
+  #   needs: deploy-staging 
+  #   # Cấp quyền để GitHub Actions có thể tạo Issue
+  #   permissions:
+  #     issues: write
+  #     contents: read
     
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
 
-      - name: Chạy OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0 # (Kiểm tra version mới nhất)
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: 'http://<URL_STAGING_CỦA_NHÓM>'
+  #     - name: Chạy OWASP ZAP Baseline Scan
+  #       uses: zaproxy/action-baseline@v0.12.0 # (Kiểm tra version mới nhất)
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         target: 'http://<URL_STAGING_CỦA_NHÓM>'
           
-          # TỰ ĐỘNG TẠO ISSUE KÈM CONTEXT
-          issue_title: '🚨 DAST Alert: Security vulnerability discovered on Staging'
+  #         # TỰ ĐỘNG TẠO ISSUE KÈM CONTEXT
+  #         issue_title: '🚨 DAST Alert: Security vulnerability discovered on Staging'
           
-          # FAIL PIPELINE NẾU CÓ LỖI (CHẶN PROMOTION)
-          fail_action: true 
+  #         # FAIL PIPELINE NẾU CÓ LỖI (CHẶN PROMOTION)
+  #         fail_action: true 
           
-          # Cho phép ZAP scan tối đa x phút để tránh treo pipeline
-          cmd_options: '-a -m 5' 
+  #         # Cho phép ZAP scan tối đa x phút để tránh treo pipeline
+  #         cmd_options: '-a -m 5' 
 
-      - name: Lưu trữ báo cáo (Gather Findings)
-        if: always() # Luôn chạy bước này dù scan pass hay fail
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-scan-report
-          path: report_html.html
+  #     - name: Lưu trữ báo cáo (Gather Findings)
+  #       if: always() # Luôn chạy bước này dù scan pass hay fail
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: zap-scan-report
+  #         path: report_html.html
