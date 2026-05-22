@@ -115,21 +115,7 @@ jobs:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
 
-      # Bước 2: Setup môi trường
-      # --- Dành cho NodeJS ---
-      - name: 2. Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
-          # # --- Dành cho Python ---
-      # - name: 2. Setup Python
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.10'
-
-      # SỬA TẠI ĐÂY: Chuyển tên Repo về chữ thường để tránh lỗi Docker build
-      - name: Prepare Image Name
+      - name: 2. Prepare Image Name
         id: prep
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
@@ -138,35 +124,37 @@ jobs:
           echo "REPO_LOWER=${REPO_LOWER}" >> $GITHUB_ENV
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
 
-      - name: 4. Thiết lập Docker Buildx (BuildKit)
+      - name: 3. Thiết lập Docker Buildx (BuildKit)
         uses: docker/setup-buildx-action@v3
 
-      - name: 5. Build và Push Image
+      - name: 4. Build và Push Image
         uses: docker/build-push-action@v5
-        # working-directory: app/NodeJS/NodeGoat/
         with:
-          context: app/NodeJS/juice-shop/ # Đường dẫn đến thư mục chứa Dockerfile
+          context: .
           push: true
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
           tags: |
             ${{ env.IMAGE_NAME }}
-            ghcr.io/${{ env.REPO_LOWER }}/juice-shop:latest
+            ghcr.io/${{ github.repository }}/juice-shop:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 6. Generate SBOM with Syft
+      - name: 5. Generate SBOM with Syft
         # install syft and using Syft to generate SBOM
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
           syft ${{ env.IMAGE_NAME }} -o spdx-json > sbom.spdx.json
 
-      - name: 7. Upload SBOM Artifact
+      - name: 6. Upload SBOM Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom-report # Tên của file nén hiển thị trên giao diện GitHub
           path: sbom.spdx.json # Tên file hoặc thư mục cần lưu trữ (phải khớp với tên file xuất ra ở trên)
           retention-days: 7 # (Tùy chọn) Giữ file này trên GitHub trong 7 ngày rồi tự động xóa cho nhẹ
 
-      - name: 8. Run Trivy Vulnerability Scanner
+      - name: 7. Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: "${{ env.IMAGE_NAME }}"
@@ -178,20 +166,20 @@ jobs:
 
       # --- CẤU HÌNH BỔ SUNG TUẦN 4: PUSH & SIGN IMAGE (Nhiệm vụ của Trường) ---
 
-      - name: 9. Log in to GitHub Container Registry
+      - name: 8. Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 10. Push Docker Image to GHCR
+      - name: 9. Push Docker Image to GHCR
         run: docker push ${{ env.IMAGE_NAME }}
 
-      - name: 11. Install Cosign
+      - name: 10. Install Cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: 12. Sign the published Docker image
+      - name: 11. Sign the published Docker image
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
@@ -200,136 +188,136 @@ jobs:
           cosign sign --key cosign.key ${{ env.IMAGE_NAME }}
           rm cosign.key
 
-  # =========================================================
-  # JOB QUẢN LÝ HẠ TẦNG CLOUD AWS (TERRAFORM IN FRASTRUCTURE)
-  # =========================================================
-  provision-infrastructure:
-    name: 4. Triển khai Hạ tầng với Terraform & Ansible
-    runs-on: ubuntu-latest
-    outputs:
-      staging_public_ip: ${{ steps.set-ip.outputs.ip }}
-    steps:
-      - name: Checkout mã nguồn
-        uses: actions/checkout@v4
+  # # =========================================================
+  # # JOB QUẢN LÝ HẠ TẦNG CLOUD AWS (TERRAFORM IN FRASTRUCTURE)
+  # # =========================================================
+  # provision-infrastructure:
+  #   name: 4. Triển khai Hạ tầng với Terraform & Ansible
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     staging_public_ip: ${{ steps.set-ip.outputs.ip }}
+  #   steps:
+  #     - name: Checkout mã nguồn
+  #       uses: actions/checkout@v4
 
-      - name: Thiết lập Terraform
-        uses: hashicorp/setup-terraform@v3
+  #     - name: Thiết lập Terraform
+  #       uses: hashicorp/setup-terraform@v3
 
-      - name: Nạp AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Trỏ đúng vùng đang khai báo trong provider.tf
+  #     - name: Nạp AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1 # Trỏ đúng vùng đang khai báo trong provider.tf
 
-      - name: Terraform Init & Apply
-        working-directory: terraform
-        run: |
-          terraform init -upgrade
-          terraform apply -auto-approve
+  #     - name: Terraform Init & Apply
+  #       working-directory: terraform
+  #       run: |
+  #         terraform init -upgrade
+  #         terraform apply -auto-approve
 
-      - name: Trích xuất IP của máy chủ mới
-        id: set-ip
-        run: |
-          PUBLIC_IP=$(terraform -chdir=terraform output -raw staging_public_ip)
-          echo "ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+  #     - name: Trích xuất IP của máy chủ mới
+  #       id: set-ip
+  #       run: |
+  #         PUBLIC_IP=$(terraform -chdir=terraform output -raw staging_public_ip)
+  #         echo "ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
           
-          # Cập nhật động IP vừa tạo vào file inventory của Ansible
-          # 🌟 KHỬ LỖI SED: Tự động ghi đè file inventory.ini mới
-          mkdir -p ansible
-          cat <<EOF > ansible/inventory.ini
-          [staging]
-          staging_server ansible_host=$PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=../nodegoat-staging-key.pem
+  #         # Cập nhật động IP vừa tạo vào file inventory của Ansible
+  #         # 🌟 KHỬ LỖI SED: Tự động ghi đè file inventory.ini mới
+  #         mkdir -p ansible
+  #         cat <<EOF > ansible/inventory.ini
+  #         [staging]
+  #         staging_server ansible_host=$PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=../nodegoat-staging-key.pem
 
-          [staging:vars]
-          ansible_ssh_common_args='-o StrictHostKeyChecking=no'
-          EOF
+  #         [staging:vars]
+  #         ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+  #         EOF
 
-      # 🌟 BƯỚC THẦN THÁNH: Gọi Ansible cấu hình môi trường K3s
-      - name: Thiết lập Private Key cho Ansible kết nối
-        run: |
-          echo "${{ secrets.AWS_EC2_SSH_KEY }}" > nodegoat-staging-key.pem
-          chmod 400 nodegoat-staging-key.pem
+  #     # 🌟 BƯỚC THẦN THÁNH: Gọi Ansible cấu hình môi trường K3s
+  #     - name: Thiết lập Private Key cho Ansible kết nối
+  #       run: |
+  #         echo "${{ secrets.AWS_EC2_SSH_KEY }}" > nodegoat-staging-key.pem
+  #         chmod 400 nodegoat-staging-key.pem
 
-      - name: Cài đặt Ansible & Chạy Playbook cấu hình K3s
-        run: |
-          sudo apt-get update && sudo apt-get install -y ansible
-          # Cài thêm thư viện để Ansible thao tác được với lệnh Kubernetes k8s module
-          ansible-galaxy collection install kubernetes.core
-          pip install kubernetes
+  #     - name: Cài đặt Ansible & Chạy Playbook cấu hình K3s
+  #       run: |
+  #         sudo apt-get update && sudo apt-get install -y ansible
+  #         # Cài thêm thư viện để Ansible thao tác được với lệnh Kubernetes k8s module
+  #         ansible-galaxy collection install kubernetes.core
+  #         pip install kubernetes
           
-          # Thực thi kịch bản cài đặt
-          cd ansible
-          ansible-playbook -i inventory.ini playbooks/setup_k3s.yml
+  #         # Thực thi kịch bản cài đặt
+  #         cd ansible
+  #         ansible-playbook -i inventory.ini playbooks/setup_k3s.yml
 
-  # =========================================================
-  # JOB CẤU HÌNH & TRIỂN KHAI ỨNG DỤNG (K8S/K3S DEPLOYMENT)
-  # =========================================================
-  deploy-app-k3s:
-    name: 5. Deploy Manifests to K3s Cluster
-    runs-on: ubuntu-latest
-    needs: [build-and-test, provision-infrastructure]
-    outputs:
-      staging_url: http://${{ needs.provision-infrastructure.outputs.staging_public_ip }}
+  # # =========================================================
+  # # JOB CẤU HÌNH & TRIỂN KHAI ỨNG DỤNG (K8S/K3S DEPLOYMENT)
+  # # =========================================================
+  # deploy-app-k3s:
+  #   name: 5. Deploy Manifests to K3s Cluster
+  #   runs-on: ubuntu-latest
+  #   needs: [build-and-test, provision-infrastructure]
+  #   outputs:
+  #     staging_url: http://${{ needs.provision-infrastructure.outputs.staging_public_ip }}
     
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: 1. Checkout Source Code
+  #       uses: actions/checkout@v4
 
-      - name: 2. Kiểm tra trạng thái thông mạch cổng SSH (22) trên AWS
-        run: |
-          TARGET_IP="${{ needs.provision-infrastructure.outputs.staging_public_ip }}"
-          echo "🔍 Đang thăm dò kết nối tới địa chỉ AWS: ${TARGET_IP}..."
-          for i in {1..12}; do
-            if nc -zv -w 3 $TARGET_IP 22; then
-              echo "✅ [SUCCESS] Cổng SSH đã mở hoàn toàn! Sẵn sàng bàn giao cho Runner deploy."
-              exit 0
-            fi
-            echo "⏳ Cổng SSH (22) phản hồi từ chối. Server đang load OS, chờ 5 giây (Lần thử $i/12)..."
-            sleep 5
-          done
-          exit 1
+  #     - name: 2. Kiểm tra trạng thái thông mạch cổng SSH (22) trên AWS
+  #       run: |
+  #         TARGET_IP="${{ needs.provision-infrastructure.outputs.staging_public_ip }}"
+  #         echo "🔍 Đang thăm dò kết nối tới địa chỉ AWS: ${TARGET_IP}..."
+  #         for i in {1..12}; do
+  #           if nc -zv -w 3 $TARGET_IP 22; then
+  #             echo "✅ [SUCCESS] Cổng SSH đã mở hoàn toàn! Sẵn sàng bàn giao cho Runner deploy."
+  #             exit 0
+  #           fi
+  #           echo "⏳ Cổng SSH (22) phản hồi từ chối. Server đang load OS, chờ 5 giây (Lần thử $i/12)..."
+  #           sleep 5
+  #         done
+  #         exit 1
 
-      - name: 3. Deploy Kubernetes Manifests via SSH Remote
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
-        with:
-          host: ${{ needs.provision-infrastructure.outputs.staging_public_ip }}
-          username: ubuntu
-          key: ${{ secrets.AWS_EC2_SSH_KEY }}
-          envs: APP_IMAGE
-          script_stop: true # 🌟 ÉP BUỘC GÃY ĐỂ ĐÈ BUG
-          script: |
-            echo "=== [BƯỚC 1] KẾT NỐI VÀ KIỂM TRA HỆ THỐNG K3S ==="
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  #     - name: 3. Deploy Kubernetes Manifests via SSH Remote
+  #       uses: appleboy/ssh-action@v1.0.3
+  #       env:
+  #         APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
+  #       with:
+  #         host: ${{ needs.provision-infrastructure.outputs.staging_public_ip }}
+  #         username: ubuntu
+  #         key: ${{ secrets.AWS_EC2_SSH_KEY }}
+  #         envs: APP_IMAGE
+  #         script_stop: true # 🌟 ÉP BUỘC GÃY ĐỂ ĐÈ BUG
+  #         script: |
+  #           echo "=== [BƯỚC 1] KẾT NỐI VÀ KIỂM TRA HỆ THỐNG K3S ==="
+  #           export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             
-            for i in {1..15}; do
-              if kubectl get nodes > /dev/null 2>&1; then break; fi
-              sleep 5
-            done
+  #           for i in {1..15}; do
+  #             if kubectl get nodes > /dev/null 2>&1; then break; fi
+  #             sleep 5
+  #           done
             
-            echo "=== [BƯỚC 2] TẢI MÃ NGUỒN MANIFESTS ==="
-            rm -rf app
-            git clone https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} app
-            cd app
+  #           echo "=== [BƯỚC 2] TẢI MÃ NGUỒN MANIFESTS ==="
+  #           rm -rf app
+  #           git clone https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} app
+  #           cd app
             
-            echo "=== [BƯỚC 3] DỌN DẸP APP CŨ ==="
-            kubectl delete deployment nodegoat-app mongodb juice-shop -n nodegoat-staging --ignore-not-found=true
-            kubectl delete svc nodegoat-service mongodb-service juice-shop-service -n nodegoat-staging --ignore-not-found=true
+  #           echo "=== [BƯỚC 3] DỌN DẸP APP CŨ ==="
+  #           kubectl delete deployment nodegoat-app mongodb juice-shop -n nodegoat-staging --ignore-not-found=true
+  #           kubectl delete svc nodegoat-service mongodb-service juice-shop-service -n nodegoat-staging --ignore-not-found=true
             
-            echo "=== [BƯỚC 4] TRIỂN KHAI JUICE SHOP ==="
-            kubectl create namespace nodegoat-staging || true
-            sleep 15
+  #           echo "=== [BƯỚC 4] TRIỂN KHAI JUICE SHOP ==="
+  #           kubectl create namespace nodegoat-staging || true
+  #           sleep 15
             
-            # 🌟 ĐIỀN ĐỘNG IMAGE SHA VÀO FILE YAML
-            sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/juice-shop.yaml
+  #           # 🌟 ĐIỀN ĐỘNG IMAGE SHA VÀO FILE YAML
+  #           sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/juice-shop.yaml
             
-            kubectl apply -f k8s/juice-shop.yaml --validate=false
+  #           kubectl apply -f k8s/juice-shop.yaml --validate=false
             
-            echo "=== [BƯỚC 5] CẬP NHẬT TRẠNG THÁI POD ==="
-            kubectl rollout restart deployment/juice-shop -n nodegoat-staging || true
-            kubectl rollout status deployment/juice-shop -n nodegoat-staging --timeout=120s
+  #           echo "=== [BƯỚC 5] CẬP NHẬT TRẠNG THÁI POD ==="
+  #           kubectl rollout restart deployment/juice-shop -n nodegoat-staging || true
+  #           kubectl rollout status deployment/juice-shop -n nodegoat-staging --timeout=120s
 
   # dast_scan:
   #   name: OWASP ZAP DAST Scan
