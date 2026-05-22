@@ -14,7 +14,7 @@ jobs:
 
       - name: 2. Kiểm tra trạng thái thông mạch cổng SSH (22) trên AWS
         run: |
-          TARGET_IP="http://100.31.120.61"
+          TARGET_IP="100.31.120.61"
           echo "🔍 Đang thăm dò kết nối tới địa chỉ AWS: ${TARGET_IP}..."
           for i in {1..12}; do
             if nc -zv -w 3 $TARGET_IP 22; then
