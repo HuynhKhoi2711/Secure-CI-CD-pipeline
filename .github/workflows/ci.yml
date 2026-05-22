@@ -93,149 +93,149 @@ jobs:
 #           # skip_check: CKV_AWS_20
 #           skip_check: CKV2_AWS_11,CKV2_AWS_12
 
-  # # --- DOCKER BUILD & CONTAINER SECURITY (Nhiệm vụ của Khôi) ---
-  # build-and-test:
-  #   name: 3. Build & Test Application
-  #   # Cập nhật: Chỉ chạy khi tất cả các công cụ quét bảo mật ở trên đã hoàn thành
-  #   # needs: [semgrep-scan, python-scan, javascript-scan, iac-scan]
-  #   # Sử dụng if: always() để đảm bảo phần Build vẫn chạy bất kể các job trước thành công hay thất bại
-  #   if: always()
-  #   runs-on: ubuntu-latest # Mượn một máy ảo Ubuntu miễn phí của GitHub để chạy
-  #   outputs:
-  #     full_image_name: ${{ steps.prep.outputs.IMAGE_NAME }}
+  # --- DOCKER BUILD & CONTAINER SECURITY (Nhiệm vụ của Khôi) ---
+  build-and-test:
+    name: 3. Build & Test Application
+    # Cập nhật: Chỉ chạy khi tất cả các công cụ quét bảo mật ở trên đã hoàn thành
+    # needs: [semgrep-scan, python-scan, javascript-scan, iac-scan]
+    # Sử dụng if: always() để đảm bảo phần Build vẫn chạy bất kể các job trước thành công hay thất bại
+    if: always()
+    runs-on: ubuntu-latest # Mượn một máy ảo Ubuntu miễn phí của GitHub để chạy
+    outputs:
+      full_image_name: ${{ steps.prep.outputs.IMAGE_NAME }}
 
-  #   # Cấp quyền để ghi vào Container Registry và ký Image (Cần thiết cho tuần 4)
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #     id-token: write
+    # Cấp quyền để ghi vào Container Registry và ký Image (Cần thiết cho tuần 4)
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
 
-  #   steps:
-  #     # Bước 1: Lấy code từ GitHub về cái máy ảo Ubuntu kia
-  #     - name: 1. Checkout Source Code
-  #       uses: actions/checkout@v4
+    steps:
+      # Bước 1: Lấy code từ GitHub về cái máy ảo Ubuntu kia
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
 
-  #     # Bước 2: Setup môi trường
-  #     # --- Dành cho NodeJS ---
-  #     - name: 2. Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "18"
+      # Bước 2: Setup môi trường
+      # --- Dành cho NodeJS ---
+      - name: 2. Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
 
-  #         # # --- Dành cho Python ---
-  #     # - name: 2. Setup Python
-  #     #   uses: actions/setup-python@v4
-  #     #   with:
-  #     #     python-version: '3.10'
+          # # --- Dành cho Python ---
+      # - name: 2. Setup Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
 
-  #     # SỬA TẠI ĐÂY: Chuyển tên Repo về chữ thường để tránh lỗi Docker build
-  #     - name: Prepare Image Name
-  #       id: prep
-  #       run: |
-  #         REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-  #         IMAGE_NAME=ghcr.io/${REPO_LOWER}/nodegoat:${{ github.sha }}
-  #         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-  #         echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+      # SỬA TẠI ĐÂY: Chuyển tên Repo về chữ thường để tránh lỗi Docker build
+      - name: Prepare Image Name
+        id: prep
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_NAME=ghcr.io/${REPO_LOWER}/nodegoat:${{ github.sha }}
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
 
-  #     # Bước 3: Build thử Docker Image
-  #     - name: 3. Docker build image (Sửa tag để chuẩn bị Push)
-  #       # Sửa tag nt524 thành đường dẫn GHCR để có thể push và ký
-  #       working-directory: app/NodeJS/NodeGoat/
-  #       run: |
-  #         docker build -t ${{ env.IMAGE_NAME }} .
+      # Bước 3: Build thử Docker Image
+      - name: 3. Docker build image (Sửa tag để chuẩn bị Push)
+        # Sửa tag nt524 thành đường dẫn GHCR để có thể push và ký
+        working-directory: app/NodeJS/NodeGoat/
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
 
-  #     # Bước 4: Tạo SBOM với Syft (Nhiệm vụ Tuần 3)
-  #     - name: 4. Generate SBOM with Syft
-  #       # install syft and using Syft to generate SBOM
-  #       run: |
-  #         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-  #         syft ${{ env.IMAGE_NAME }} -o spdx-json > sbom.spdx.json
+      # Bước 4: Tạo SBOM với Syft (Nhiệm vụ Tuần 3)
+      - name: 4. Generate SBOM with Syft
+        # install syft and using Syft to generate SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft ${{ env.IMAGE_NAME }} -o spdx-json > sbom.spdx.json
 
-  #     # Bước 5: THÊM MỚI BƯỚC NÀY ĐỂ LƯU FILE
-  #     - name: 5. Upload SBOM Artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: sbom-report # Tên của file nén hiển thị trên giao diện GitHub
-  #         path: sbom.spdx.json # Tên file hoặc thư mục cần lưu trữ (phải khớp với tên file xuất ra ở trên)
-  #         retention-days: 7 # (Tùy chọn) Giữ file này trên GitHub trong 7 ngày rồi tự động xóa cho nhẹ
+      # Bước 5: THÊM MỚI BƯỚC NÀY ĐỂ LƯU FILE
+      - name: 5. Upload SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-report # Tên của file nén hiển thị trên giao diện GitHub
+          path: sbom.spdx.json # Tên file hoặc thư mục cần lưu trữ (phải khớp với tên file xuất ra ở trên)
+          retention-days: 7 # (Tùy chọn) Giữ file này trên GitHub trong 7 ngày rồi tự động xóa cho nhẹ
 
-  #     # Bước 6: Quét Image với Trivy (Nhiệm vụ Tuần 3)
-  #     - name: 6. Run Trivy Vulnerability Scanner
-  #       uses: aquasecurity/trivy-action@master
-  #       with:
-  #         image-ref: "${{ env.IMAGE_NAME }}"
-  #         format: "table"
-  #         exit-code: "0" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
-  #         ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
-  #         vuln-type: "os,library"
-  #         severity: "CRITICAL,HIGH"
+      # Bước 6: Quét Image với Trivy (Nhiệm vụ Tuần 3)
+      - name: 6. Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}"
+          format: "table"
+          exit-code: "0" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
+          ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
-  #     # --- CẤU HÌNH BỔ SUNG TUẦN 4: PUSH & SIGN IMAGE (Nhiệm vụ của Trường) ---
+      # --- CẤU HÌNH BỔ SUNG TUẦN 4: PUSH & SIGN IMAGE (Nhiệm vụ của Trường) ---
 
-  #     - name: 7. Log in to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 7. Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: 8. Push Docker Image to GHCR
-  #       run: docker push ${{ env.IMAGE_NAME }}
+      - name: 8. Push Docker Image to GHCR
+        run: docker push ${{ env.IMAGE_NAME }}
 
-  #     - name: 9. Install Cosign
-  #       uses: sigstore/cosign-installer@v3
+      - name: 9. Install Cosign
+        uses: sigstore/cosign-installer@v3
 
-  #     - name: 10. Sign the published Docker image
-  #       env:
-  #         COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-  #         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-  #       run: |
-  #         echo "$COSIGN_PRIVATE_KEY" > cosign.key
-  #         cosign sign --key cosign.key ${{ env.IMAGE_NAME }}
-  #         rm cosign.key
+      - name: 10. Sign the published Docker image
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          echo "$COSIGN_PRIVATE_KEY" > cosign.key
+          cosign sign --key cosign.key ${{ env.IMAGE_NAME }}
+          rm cosign.key
 
-  # # =========================================================
-  # # JOB QUẢN LÝ HẠ TẦNG CLOUD AWS (TERRAFORM IN FRASTRUCTURE)
-  # # =========================================================
-  # provision-infrastructure:
-  #   name: 4. Provision AWS Infrastructure
-  #   runs-on: ubuntu-latest
-  #   needs: build-and-test # Map đúng tên job build image trước đó của nhóm em
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   outputs:
-  #     # Xuất IP ra thành biến dùng chung toàn Pipeline để Job 4B hứng lấy dữ liệu
-  #     staging_public_ip: ${{ steps.get-ip.outputs.EC2_IP }}
+  # =========================================================
+  # JOB QUẢN LÝ HẠ TẦNG CLOUD AWS (TERRAFORM IN FRASTRUCTURE)
+  # =========================================================
+  provision-infrastructure:
+    name: 4. Provision AWS Infrastructure
+    runs-on: ubuntu-latest
+    needs: build-and-test # Map đúng tên job build image trước đó của nhóm em
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      # Xuất IP ra thành biến dùng chung toàn Pipeline để Job 4B hứng lấy dữ liệu
+      staging_public_ip: ${{ steps.get-ip.outputs.EC2_IP }}
 
-  #   steps:
-  #     - name: 1. Checkout Source Code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
 
-  #     - name: 2. Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: us-east-1
+      - name: 2. Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-  #     - name: 3. Setup Terraform
-  #       uses: hashicorp/setup-terraform@v3
+      - name: 3. Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-  #     - name: 4. Terraform Init & Apply
-  #       working-directory: terraform
-  #       run: |
-  #         terraform init
-  #         # Sử dụng lệnh -compact-warnings để log sạch dễ đọc
-  #         terraform apply -auto-approve -compact-warnings
+      - name: 4. Terraform Init & Apply
+        working-directory: terraform
+        run: |
+          terraform init
+          # Sử dụng lệnh -compact-warnings để log sạch dễ đọc
+          terraform apply -auto-approve -compact-warnings
 
-  #     - name: 5. Thu hoạch IP Public của AWS EC2
-  #       id: get-ip
-  #       working-directory: terraform
-  #       run: |
-  #         EC2_PUBLIC_IP=$(terraform output -raw staging_public_ip)
-  #         echo "EC2_IP=${EC2_PUBLIC_IP}" >> $GITHUB_OUTPUT
-  #         echo "🎯 Đã ghi nhận máy chủ AWS Staging tại IP: ${EC2_PUBLIC_IP}"
+      - name: 5. Thu hoạch IP Public của AWS EC2
+        id: get-ip
+        working-directory: terraform
+        run: |
+          EC2_PUBLIC_IP=$(terraform output -raw staging_public_ip)
+          echo "EC2_IP=${EC2_PUBLIC_IP}" >> $GITHUB_OUTPUT
+          echo "🎯 Đã ghi nhận máy chủ AWS Staging tại IP: ${EC2_PUBLIC_IP}"
 
   # =========================================================
   # JOB CẤU HÌNH & TRIỂN KHAI ỨNG DỤNG (K8S/K3S DEPLOYMENT)
@@ -244,9 +244,9 @@ jobs:
     name: 5. Deploy Manifests to K3s Cluster
     runs-on: ubuntu-latest
     # CHỈ CHẠY khi Job tạo hạ tầng (4A) thành công rực rỡ
-    # needs: [build-and-test, provision-infrastructure]
+    needs: [build-and-test, provision-infrastructure]
     outputs:
-      staging_url: http://13.220.63.189
+      staging_url: http://${{ needs.provision-infrastructure.outputs.staging_public_ip }}
     
     steps:
       - name: 1. Checkout Source Code
@@ -255,7 +255,7 @@ jobs:
       # FLOW KIỂM TRA ĐẶC BIỆT: Vòng lặp tự động dò cổng SSH của server mới/cũ
       - name: 2. Kiểm tra trạng thái thông mạch cổng SSH (22) trên AWS
         run: |
-          TARGET_IP="13.220.63.189"
+          TARGET_IP="${{ needs.provision-infrastructure.outputs.staging_public_ip }}"
           echo "🔍 Đang thăm dò kết nối tới địa chỉ AWS: ${TARGET_IP}..."
           
           # Thử kết nối tối đa 12 lần, mỗi lần cách nhau 5 giây (Tổng cộng 60 giây chờ)
@@ -274,37 +274,53 @@ jobs:
       - name: 3. Deploy Kubernetes Manifests via SSH Remote
         uses: appleboy/ssh-action@v1.0.3
         env:
-          APP_IMAGE: ghcr.io/nt524/secure-ci-cd-pipeline/nodegoat:f962aa8e666629b944d066ad1c5c82f63f4490fb
-          host: 13.220.63.189
+          APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
+        with:
+          host: ${{ needs.provision-infrastructure.outputs.staging_public_ip }}
           username: ubuntu
           key: ${{ secrets.AWS_EC2_SSH_KEY }}
           envs: APP_IMAGE
           script: |
-            echo "🤖 Đang đồng bộ hóa hệ thống K3s trên AWS..."
+            echo "=== [BƯỚC 1] KHỞI ĐỘNG HỆ THỐNG K3S ==="
+            echo "🚚 Docker Image đích: $APP_IMAGE"
+            
+            echo "🤖 Chờ hệ thống K3s và Namespace sẵn sàng..."
             until sudo kubectl get nodes; do sleep 3; done
             
-            # Quản lý thư mục chứa mã nguồn k8s manifests trên EC2
-            if [ ! -d "app" ]; then
-              git clone https://github.com/${{ github.repository }}.git app
-              cd app
-            else
-              cd app
-              git fetch --all && git reset --hard origin/${{ github.ref_name }}
-            fi
+            echo "=== [BƯỚC 2] TẢI MÃ NGUỒN MANIFESTS ==="
+            # Vì Terraform vừa tạo máy ảo mới, ta dọn dẹp app cũ một cách an toàn nếu có
+            rm -rf app
             
-            # Tiến hành nạp (Apply) các cấu hình Kubernetes của trường vào hệ thống
+            echo "📥 Tiến hành clone bản sạch trực tiếp từ nhánh testing_aws..."
+            git clone https://github.com/${{ github.repository }} -b testing_aws app
+            
+            # Di chuyển vào thư mục repo để thao tác với các file yaml
+            cd app
+            
+            echo "=== [BƯỚC 3] TRIỂN KHAI DATABASE MONGODB ==="
+            # 🌟 ĐÃ KHỬ LỖI: Không cần tạo namespace bằng lệnh bash nữa vì IaC Terraform đã lo liệu xong 100%
             sudo kubectl apply -f k8s/mongodb_deployment.yaml
             sudo kubectl apply -f k8s/mongodb_service.yaml
             
+            echo "=== [BƯỚC 4] CẤU HÌNH VÀ TRIỂN KHAI APP NODEGOAT ==="
+            echo "🔧 Đang thực hiện thay thế token image động vào file deployment..."
+            # Dùng sed không sudo vì user ubuntu làm chủ thư mục app vừa clone
             sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/nodegoat_deployment.yaml
+            
+            echo "🔍 Kiểm tra nội dung file sau khi sed:"
+            grep -A 2 -B 2 "image:" k8s/nodegoat_deployment.yaml
+            
             sudo kubectl apply -f k8s/nodegoat_deployment.yaml
             sudo kubectl apply -f k8s/nodegoat_service.yaml
             
-            # Thực hiện cập nhật nóng (Zero-downtime rolling restart) nếu app đã chạy từ trước
+            echo "=== [BƯỚC 5] CẬP NHẬT NÓNG VÀ KIỂM TRA TRẠNG THÁI POD ==="
             sudo kubectl rollout restart deployment/nodegoat-app -n nodegoat-staging || true
             
-            echo "📊 Trạng thái kiểm tra Pod triển khai:"
-            sudo kubectl rollout status deployment/nodegoat-app -n nodegoat-staging --timeout=90s || true
+            echo "📊 Đang chờ các Pod trên Kubernetes Cluster chuyển sang trạng thái Running..."
+            sudo kubectl rollout status deployment/mongodb -n nodegoat-staging --timeout=60s
+            sudo kubectl rollout status deployment/nodegoat-app -n nodegoat-staging --timeout=90s
+            
+            echo "🎉 [SUCCESS] Hệ thống kết hợp IaC và CI/CD đã chạy thành công tuyệt đối!"
   # dast_scan:
   #   name: OWASP ZAP DAST Scan
   #   runs-on: ubuntu-latest
