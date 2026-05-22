@@ -20,15 +20,13 @@ jobs:
             exit 1
           fi
 
+          # 🌟 ĐÃ CHỈNH SỬA: Thay thế toàn bộ logic check git cũ bằng cơ chế Wipe & Clone bất tử
       - name: 2. Thực thi Deploy Thử nghiệm qua SSH Remote
         uses: appleboy/ssh-action@v1.0.3
-        # 🌟 KHẮC PHỤC LỖI TRUYỀN BIẾT: Đưa các biến host, username, key ra ngoài block env: 
-        # block env chỉ dành cho các biến môi trường nội bộ muốn truyền vào Script.
         with:
           host: 13.220.63.189
           username: ubuntu
           key: ${{ secrets.AWS_EC2_SSH_KEY }}
-          envs: APP_IMAGE
           script_stop: true # Bật tính năng dừng ngay lập tức nếu bất kỳ dòng lệnh Bash nào bên dưới bị lỗi để dễ debug
           script: |
             echo "=== [BƯỚC 1] KHỞI ĐỘNG HỆ THỐNG K3S ==="
@@ -39,28 +37,17 @@ jobs:
             until sudo kubectl get nodes; do sleep 3; done
             
             echo "=== [BƯỚC 2] ĐỒNG BỘ MÃ NGUỒN MANIFESTS ==="
-            # 🌟 ĐÂY LÀ DÒNG CHỮA BÁCH BỆNH PHÂN QUYỀN: Trả lại quyền cho user ubuntu
-            sudo chown -R ubuntu:ubuntu /home/ubuntu
-            
-            # Cấu hình an toàn cho Git
-            git config --global --add safe.directory /home/ubuntu/app
-            
+            # Nếu phát hiện thư mục cũ, dùng quyền tối cao xóa sạch rác phân quyền root để tránh xung đột
             if [ -d "app" ]; then
-              echo "🧹 Phát hiện thư mục app cũ, tiến hành dọn dẹp và ép đồng bộ..."
-              cd app
-              git reset --hard HEAD
-              git clean -fd
-              git fetch origin
-              git checkout -B testing_aws origin/testing_aws
-              git reset --hard origin/testing_aws
-            else
-              echo "📥 Thư mục trống, tiến hành clone biệt lập nhánh testing_aws..."
-              git clone https://github.com/NT524/Secure-CI-CD-pipeline.git -b testing_aws app
-              cd app
+              echo "🧹 Phát hiện thư mục app cũ. Tiến hành xóa trắng tận gốc..."
+              sudo rm -rf app
             fi
             
-            echo "📍 Vị trí Git hiện tại để debug:"
-            git status
+            echo "📥 Tiến hành clone bản sạch trực tiếp từ nhánh testing_aws..."
+            git clone https://github.com/NT524/Secure-CI-CD-pipeline.git -b testing_aws app
+            
+            # Chuyển bối cảnh làm việc vào sâu trong thư mục repo vừa tải về
+            cd app
             
             echo "=== [BƯỚC 3] TRIỂN KHAI DATABASE MONGODB ==="
             sudo kubectl apply -f k8s/mongodb_deployment.yaml
@@ -68,9 +55,9 @@ jobs:
             
             echo "=== [BƯỚC 4] CẤU HÌNH VÀ TRIỂN KHAI APP NODEGOAT ==="
             echo "🔧 Đang thực hiện thay thế token image động vào file deployment..."
-            sudo sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/nodegoat_deployment.yaml
+            # KHÔNG dùng sudo cho lệnh sed này để tránh biến file thành quyền sở hữu của root
+            sed -i "s|\${app_image}|$APP_IMAGE|g" k8s/nodegoat_deployment.yaml
             
-            # In ra log 15 dòng đầu để kiểm tra xem lệnh sed đã thay thế chuỗi ${app_image} thành công chưa
             echo "🔍 Kiểm tra nội dung file sau khi sed:"
             grep -A 2 -B 2 "image:" k8s/nodegoat_deployment.yaml
             
