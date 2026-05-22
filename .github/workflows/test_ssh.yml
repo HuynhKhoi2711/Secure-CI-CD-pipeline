@@ -39,7 +39,7 @@ jobs:
             until sudo kubectl get nodes; do sleep 3; done
             
             echo "=== [BƯỚC 2] ĐỒNG BỘ MÃ NGUỒN MANIFESTS ==="
-            # 🌟 DÒNG QUAN TRỌNG: Sửa lỗi phân quyền "Permission denied" do rác sudo cũ để lại
+            # 🌟 ĐÂY LÀ DÒNG CHỮA BÁCH BỆNH PHÂN QUYỀN: Trả lại quyền cho user ubuntu
             sudo chown -R ubuntu:ubuntu /home/ubuntu
             
             # Cấu hình an toàn cho Git
@@ -48,15 +48,9 @@ jobs:
             if [ -d "app" ]; then
               echo "🧹 Phát hiện thư mục app cũ, tiến hành dọn dẹp và ép đồng bộ..."
               cd app
-              
-              # Xóa sạch cấu hình lỗi hoặc các file sinh ra tự động trước đó
               git reset --hard HEAD
               git clean -fd
-              
-              echo "📥 Kéo cập nhật mới nhất từ GitHub..."
               git fetch origin
-              
-              echo "🔀 Chuyển đổi và ghim chặt vào nhánh testing_aws mới nhất..."
               git checkout -B testing_aws origin/testing_aws
               git reset --hard origin/testing_aws
             else
@@ -65,7 +59,8 @@ jobs:
               cd app
             fi
             
-            echo "📍 Vị trí Git
+            echo "📍 Vị trí Git hiện tại để debug:"
+            git status
             
             echo "=== [BƯỚC 3] TRIỂN KHAI DATABASE MONGODB ==="
             sudo kubectl apply -f k8s/mongodb_deployment.yaml
