@@ -133,10 +133,13 @@ jobs:
       - name: Prepare Image Name & Environment
         id: prep
         run: |
+
+          
           ENVIRONMENT=${{ env.ENVIRONMENT }}
           echo "ENV=${ENVIRONMENT}" >> $GITHUB_OUTPUT
           
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "REPO_LOWER=${REPO_LOWER}" >> $GITHUB_ENV
           VERSION_TAG="${{ github.sha }}"
           IMAGE_NAME=ghcr.io/${REPO_LOWER}/juice-shop:${VERSION_TAG}-${ENVIRONMENT}
           
