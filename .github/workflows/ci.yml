@@ -278,7 +278,7 @@ jobs:
             echo "✅ Đã tạo xong DynamoDB Table."
           fi
 
-      - name: Terraform Init & Apply
+      - name: Terraform Init
         working-directory: terraform
         run: |
           terraform init -upgrade \
