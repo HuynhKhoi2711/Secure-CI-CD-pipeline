@@ -315,6 +315,11 @@ jobs:
 
       - name: Terraform Apply (Provision EKS)
         working-directory: terraform
+        env:
+          TF_IN_AUTOMATION: "1"
+          TF_VAR_environment: ${{ env.ENVIRONMENT }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_cluster_name: ${{ env.cluster_name }}
         run: terraform apply -auto-approve tfplan
         if: ${{ steps.tf-plan-eks.outputs.exitcode == '2' }}
 
