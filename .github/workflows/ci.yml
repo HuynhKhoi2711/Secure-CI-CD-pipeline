@@ -301,6 +301,14 @@ jobs:
           TF_VAR_cluster_name: ${{ env.cluster_name }}
         run: terraform refresh
 
+      - name: Terraform destroy (Clean up EKS Cluster) - Chạy khi PR bị đóng hoặc Merge vào main để dọn dẹp tài nguyên
+        if: github.event_name == 'pull_request' && (github.event.action == 'closed' && !github.event.pull_request.merged)
+        working-directory: terraform
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_cluster_name: ${{ env.cluster_name }}
+        run: terraform destroy -auto-approve
+
       - name: Terraform Plan EKS
         id: tf-plan-eks
         env:
@@ -324,6 +332,14 @@ jobs:
             echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
             exit 0
           fi
+
+      - name: Terraform destroy (Clean up EKS Cluster) - Chạy khi PR bị đóng hoặc Merge vào main để dọn dẹp tài nguyên
+        if: ${{ steps.tf-plan-eks.outputs.exitcode == '1' }}
+        working-directory: terraform
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_cluster_name: ${{ env.cluster_name }}
+        run: terraform destroy -auto-approve
 
       # 🌟 SỬA LẠI CÚ PHÁP CHẠY FILE PLAN CHUẨN XÁC
       - name: Terraform Apply (Provision EKS)
