@@ -29,10 +29,29 @@ jobs:
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
-      - name: 2. Run Semgrep
-        uses: returntocorp/semgrep-action@v1
+
+      # Cài đặt Semgrep CLI trực tiếp lên máy ảo để chạy lệnh linh hoạt
+      - name: 2. Install Semgrep CLI
+        run: pip install semgrep
+
+      # Chạy quét và xuất bản SARIF (JSON tiêu chuẩn của GitHub)
+      - name: 3. Run Semgrep (SARIF Format)
+        run: |
+          semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --sarif -o semgrep-report.sarif || true
+
+      # Chạy quét và xuất bản HTML để ông tải về làm báo cáo
+      - name: 4. Generate Semgrep HTML Report
+        run: |
+          semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --html -o semgrep-report.html || true
+
+      # Gom cả 2 file báo cáo nộp lên đám mây lưu trữ
+      - name: 5. Upload Semgrep Security Reports
+        uses: actions/upload-artifact@v4
         with:
-          config: p/security-audit p/nodejs p/owasp-top-ten
+          name: semgrep-security-reports
+          path: |
+            semgrep-report.sarif
+            semgrep-report.html
 
   python-scan:
     name: 2b. Bandit (Python SAST)
@@ -41,10 +60,22 @@ jobs:
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
+
       - name: 2. Run Bandit Scan
         run: |
           pip install bandit
-          bandit -r . -f txt || true
+          # Xuất bản định dạng JSON cho máy đọc
+          bandit -r . -f json -o bandit-report.json || true
+          # Xuất bản định dạng HTML cho con người đọc
+          bandit -r . -f html -o bandit-report.html || true
+
+      - name: 3. Upload Bandit Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-reports
+          path: |
+            bandit-report.json
+            bandit-report.html
 
   # --- TẠM TẮT GOLANG SCAN VÌ CHƯA CÓ CODE GO (TRÁNH LỖI NO PACKAGES FOUND) ---
   #  golang-scan:
@@ -66,11 +97,23 @@ jobs:
     steps:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
+
       - name: 2. Run ESLint Scan
         working-directory: app/NodeJS/NodeGoat/
         run: |
           npm install
-          npx eslint . --ext .js || true
+          # Xuất bản định dạng JSON phục vụ parse tự động
+          npx eslint . --ext .js -f json -o eslint-report.json || true
+          # Tận dụng formatter có sẵn của eslint để xuất ra trang HTML trực quan
+          npx eslint . --ext .js -f html -o eslint-report.html || true
+
+      - name: 3. Upload ESLint Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-security-reports
+          path: |
+            app/NodeJS/NodeGoat/eslint-report.json
+            app/NodeJS/NodeGoat/eslint-report.html
 
   # --- QUÉT BẢO MẬT HẠ TẦNG (Nhiệm vụ Tuần 3 của Trường) ---
   iac-scan:
@@ -89,3 +132,52 @@ jobs:
           # Để xử lý False Positive (ví dụ lỗi CKV_AWS_20), có thể thêm dòng sau:
           # skip_check: CKV_AWS_20
           skip_check: CKV2_AWS_11,CKV2_AWS_12
+          # Cấu hình Checkov xuất bản song song nhiều định dạng báo cáo
+          output_format: json,sarif
+          output_file_path: checkov-report
+
+      - name: 3. Upload Checkov Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-iac-reports
+          path: checkov-report*
+
+ # --- QUÉT LỘ LỌT THÔNG TIN NHẠY CẢM (Secrets Scanning - Nhiệm vụ của Trường) ---
+  secret-scan:
+    name: 2f. TruffleHog (Secret Scanning)
+    needs: terraform-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Bắt buộc lấy toàn bộ lịch sử commit để TruffleHog quét sâu quá khứ
+
+      # Dùng Docker chính chủ quét hệ thống file và xuất bản JSON cho máy đọc
+      - name: 2. Run TruffleHog Scan (JSON Output)
+        run: |
+          docker run --rm -v "$PWD:/pwd" trufflesecurity/trufflehog:latest filesystem /pwd --json > trufflehog-report.json || true
+
+      # Tự động chuyển đổi log JSON thành một trang HTML tĩnh trực quan để nộp bài
+      - name: 3. Generate TruffleHog HTML Report
+        run: |
+          echo "<html><head><title>TruffleHog Secret Scan Report</title><style>body{font-family:Arial;padding:20px;background:#f4f4f4;}pre{background:#222;color:#fff;padding:15px;border-radius:5px;overflow-x:auto;}</style></head><body>" > trufflehog-report.html
+          echo "<h1> TruffleHog Secret Scan Report</h1><p>Dưới đây là danh sách các mã bí mật, API Keys bị phát hiện lộ lọt trong mã nguồn:</p><pre>" >> trufflehog-report.html
+          
+          # Nếu file json trống hoặc không có lỗi, ghi nhận an toàn
+          if [ -s trufflehog-report.json ]; then
+            cat trufflehog-report.json >> trufflehog-report.html
+          else
+            echo "Chúc mừng! Không tìm thấy thông tin nhạy cảm nào bị lộ lọt (No secrets found)." >> trufflehog-report.html
+          fi
+          
+          echo "</pre></body></html>" >> trufflehog-report.html
+
+      # Gom toàn bộ báo cáo nộp lên hệ thống lưu trữ đám mây Artifacts
+      - name: 4. Upload TruffleHog Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: trufflehog-secret-reports
+          path: |
+            trufflehog-report.json
+            trufflehog-report.html

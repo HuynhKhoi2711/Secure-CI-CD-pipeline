@@ -61,7 +61,23 @@ jobs:
           terraform init -upgrade 
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
+          
+          # 1. Xuất bản JSON (Chuẩn hóa cấu trúc máy đọc)
+          conftest test tfplan.json --policy ../policy/conftest/ -o json > conftest-report.json || true
+          
+          # 2. Xuất bản HTML (Giao diện trực quan cho con người đọc)
+          conftest test tfplan.json --policy ../policy/conftest/ -o html > conftest-report.html || true
+          
+          # 3. Chạy lại một lần nữa hiển thị ra màn hình log GitHub để theo dõi trực tiếp
           conftest test tfplan.json --policy ../policy/conftest/
+
+      - name: 8.1 Upload Conftest Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: conftest-infrastructure-reports
+          path: |
+            terraform/conftest-report.json
+            terraform/conftest-report.html
 
       - name: 9. Terraform Apply
         env:

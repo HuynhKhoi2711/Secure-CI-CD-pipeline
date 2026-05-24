@@ -73,15 +73,36 @@ jobs:
           retention-days: 7 # (Tùy chọn) Giữ file này trên GitHub trong 7 ngày rồi tự động xóa cho nhẹ
 
       # Bước 6: Quét Image với Trivy (Nhiệm vụ Tuần 3)
-      - name: 6. Run Trivy Vulnerability Scanner
+      - name: 6a. Run Trivy Vulnerability Scanner (JSON Output)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: "${{ env.IMAGE_NAME }}"
-          format: "table"
+          format: "json"
+          output: "trivy-report.json"
           exit-code: "0" # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
           ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+
+      - name: 6b. Run Trivy Vulnerability Scanner (HTML Output)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.IMAGE_NAME }}"
+          format: "template"
+          template: "@contrib/html.tpl"
+          output: "trivy-report.html"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: 6c. Upload Trivy Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-reports
+          path: |
+            trivy-report.json
+            trivy-report.html
 
       # --- CẤU HÌNH BỔ SUNG TUẦN 4: PUSH & SIGN IMAGE (Nhiệm vụ của Trường) ---
 
