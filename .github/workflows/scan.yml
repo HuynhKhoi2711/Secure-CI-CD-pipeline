@@ -153,7 +153,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: checkov-report/results.sarif  
+          sarif_file: checkov-report/results_sarif.sarif 
 
   # --- QUÉT LỘ LỌT THÔNG TIN NHẠY CẢM (Secrets Scanning - Nhiệm vụ của Trường) ---
   secret-scan:
