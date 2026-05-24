@@ -195,6 +195,14 @@ jobs:
           #   exit 1
           # fi
 
+      # 🚀 BƯỚC BỔ SUNG MỚI (BƯỚC 17): Đẩy file Kubeconfig lên làm Artifact để Job DAST mượn xài
+      - name: 17. Upload Kubeconfig for DAST Job
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-kubeconfig
+          path: terraform/kubeconfig
+
   # =========================================================
   # CHẠY QUÉT ĐỘNG DAST CHO ỨNG DỤNG SAU KHI DEPLOY
   # =========================================================
@@ -209,14 +217,26 @@ jobs:
       - name: 1. Checkout Source Code
         uses: actions/checkout@v4
 
-      # Khởi động port-forward chạy ngầm để map cổng 4000 từ cụm Kind ra local máy ảo phục vụ quét DAST
+      # 🚀 BƯỚC BỔ SUNG MỚI (BƯỚC 1.1): Tải tệp Kubeconfig từ Job trước về đúng vị trí
+      - name: 1.1 Download Kubeconfig Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-kubeconfig
+          path: terraform/
+
+      # Khởi động port-forward chạy ngầm bằng file cấu hình vừa tải về
       - name: 2. Establish Port-Forward Connection for ZAP
         env:
           KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
           namespace: nodegoat-staging
         run: |
+          echo "--- Đang thiết lập Port-Forward kết nối cụm Kind ---"
           kubectl port-forward svc/nodegoat-app -n $namespace 4000:4000 &
-          sleep 5
+          
+          echo "⏳ Chờ 15 giây cho luồng mạng ổn định..."
+          sleep 15
+          
+          echo "--- Kiểm tra phản hồi cục bộ ---"
           curl -I http://127.0.0.1:4000
 
       # Sử dụng ĐÚNG Action cũ và Bộ biến môi trường y hệt bản gốc của bạn ông để không lỗi dịch biến
