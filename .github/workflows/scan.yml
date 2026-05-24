@@ -39,7 +39,7 @@ jobs:
         run: |
           semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --sarif -o semgrep-report.sarif || true
 
-      # SỬA TẠI ĐÂY: Chuyển sang xuất dạng text/bảng sạch vì bản Community CLI không hỗ trợ cờ --html
+      # SỬA TẠI ĐÂY: Chuyển sang xuất dạng text
       - name: 4. Generate Semgrep Text Report
         run: |
           semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --text -o semgrep-report.txt || true
@@ -52,6 +52,13 @@ jobs:
           path: |
             semgrep-report.sarif
             semgrep-report.txt
+
+      #  Đổi đường dẫn dùng github/codeql-action/upload-sarif@v4
+      - name: 6. Upload Semgrep SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: semgrep-report.sarif
 
   python-scan:
     name: 2b. Bandit (Python SAST)
@@ -127,10 +134,9 @@ jobs:
       - name: 2. Run Checkov Scan
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: terraform/
-          framework: terraform
-          # Để xử lý False Positive (ví dụ lỗi CKV_AWS_20), có thể thêm dòng sau:
-          # skip_check: CKV_AWS_20
+          # Quét thư mục gốc "." để bắt được cả file Terraform lẫn Kubernetes trong thư mục k8s/
+          directory: .
+          # Bỏ cấu hình cứng framework để Checkov tự động nhận diện cả Terraform lẫn K8s Manifests
           skip_check: CKV2_AWS_11,CKV2_AWS_12
           # Cấu hình Checkov xuất bản song song nhiều định dạng báo cáo
           output_format: json,sarif
@@ -141,6 +147,12 @@ jobs:
         with:
           name: checkov-iac-reports
           path: checkov-report*
+
+      - name: 4. Upload Checkov SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: checkov-report.sarif
 
   # --- QUÉT LỘ LỌT THÔNG TIN NHẠY CẢM (Secrets Scanning - Nhiệm vụ của Trường) ---
   secret-scan:
@@ -158,7 +170,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/pwd" trufflesecurity/trufflehog:latest filesystem /pwd --json > trufflehog-report.json || true
 
-      # Tự động chuyển đổi log JSON thành một trang HTML tĩnh trực quan để nộp bài
+      # Tự động chuyển đổi log JSON thành một trang HTML tĩnh 
       - name: 3. Generate TruffleHog HTML Report
         run: |
           echo "<html><head><title>TruffleHog Secret Scan Report</title><style>body{font-family:Arial;padding:20px;background:#f4f4f4;}pre{background:#222;color:#fff;padding:15px;border-radius:5px;overflow-x:auto;}</style></head><body>" > trufflehog-report.html

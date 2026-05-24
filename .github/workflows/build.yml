@@ -22,6 +22,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      security-events: write # BẮT BUỘC: Thêm quyền này để có thể đẩy file SARIF của Trivy lên Tab Security Web
 
     steps:
       # Bước 1: Lấy code từ GitHub về cái máy ảo Ubuntu kia
@@ -102,13 +103,34 @@ jobs:
             --ignore-unfixed \
             ${{ env.IMAGE_NAME }}
 
-      - name: 6c. Upload Trivy Security Reports
+      # CẬP NHẬT MỚI THÊM: Quét thêm định dạng SARIF bằng Docker CLI để lấy file thông dịch cho GitHub Web
+      - name: 6c. Run Trivy Vulnerability Scanner (SARIF Format)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:/root/workspace \
+            aquasec/trivy:latest image \
+            --format sarif \
+            --output /root/workspace/trivy-report.sarif \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            ${{ env.IMAGE_NAME }}
+
+      # CẬP NHẬT MỚI THÊM: Sử dụng Github CodeQL Action chính chủ để đẩy lỗi Container lên Tab Security Web
+      - name: 6d. Upload Trivy SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-report.sarif
+
+      - name: 6e. Upload Trivy Security Reports
         uses: actions/upload-artifact@v4
         with:
           name: trivy-container-reports
           path: |
             trivy-report.json
             trivy-report.html
+            trivy-report.sarif
 
       # --- CẤU HÌNH BỔ SUNG TUẦN 4: PUSH & SIGN IMAGE (Nhiệm vụ của Trường) ---
 
