@@ -347,7 +347,7 @@ jobs:
         run: |
           mkdir -p ansible/collections
           ansible-galaxy collection install amazon.aws kubernetes.core -p ansible/collections
-
+        
       - name: Deploy Application to EKS with Ansible
         env:
           ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/ansible/collections
@@ -360,7 +360,17 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
-          ansible-playbook ansible/playbooks/deploy-k8s.yml -i ansible/inventory.ini
+          
+          K8S_AUTH_TOKEN=$(aws eks get-token --cluster-name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --output json | jq -r '.status.token')
+          K8S_AUTH_HOST=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --output json | jq -r '.cluster.endpoint')
+          
+          export K8S_AUTH_TOKEN="$K8S_AUTH_TOKEN"
+          export K8S_AUTH_HOST="$K8S_AUTH_HOST"
+
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
+          ansible-playbook ansible/playbooks/deploy-k8s.yml -i ansible/inventory.ini \
+            -e "k8s_auth_token=$K8S_AUTH_TOKEN" \
+            -e "k8s_auth_host=$K8S_AUTH_HOST"
 
 
       
