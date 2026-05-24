@@ -44,7 +44,3 @@ output "public_subnets" {
     description = "IDs of the public subnets used by the EKS cluster"
     value       = module.vpc.public_subnets
 }
-output "k8s_service_name" {
-  description = "The name of the Kubernetes Service for the Juice Shop application"
-  value       = kubernetes_service.juice_shop.metadata[0].name
-}
