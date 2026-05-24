@@ -8,7 +8,8 @@
     # Ansible sẽ nhận các biến này truyền từ GitHub Actions vào
     k8s_namespace: "{{tf_var_k8s_namespace}}"
     app_image: "{{tf_var_image_name}}"
-    GHCR_PAT: "{{tf_var_GHCR_PAT}}"
+    github_token: "{{tf_var_GITHUB_TOKEN}}"
+    github_actor: "{{tf_var_GITHUB_ACTOR}}"
 
   tasks:
   - name: Create Kubernetes Namespace using kubectl
@@ -16,8 +17,8 @@
     ignore_errors: true # Bỏ qua lỗi nếu namespace đã tồn tại từ trước
 
   - name: Create Registry Secret for GHCR
-    sheel: >
-      kubectl create secret docker-registry ghcr-secret --docker-server=ghcr.io --docker-username=nt524 --docker-password={{ GHCR_PAT }} --namespace="{{ k8s_namespace }}" --dry-run=client -o yaml | kubectl apply -f -
+    shell: >
+      kubectl create secret docker-registry ghcr-secret --docker-server=ghcr.io --docker-username={{ github_actor }} --docker-password={{ github_token }} --namespace="{{ k8s_namespace }}" --dry-run=client -o yaml | kubectl apply -f -
 
   - name: Render Kubernetes Manifest Template
     template:
