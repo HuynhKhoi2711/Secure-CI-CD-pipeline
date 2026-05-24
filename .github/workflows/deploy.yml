@@ -203,7 +203,7 @@ jobs:
 
       # --- CÀI ĐẶT OPA GATEKEEPER VÀ COSING VÀO CỤM AWS EKS ---
       - name: Update Kubeconfig cho AWS EKS
-        run: aws eks update-kubeconfig --name ${{ env.cluster_name }} --region ${{ env.AWS_REGION }}
+        run: aws eks update-kubeconfig --name ${{ env.cluster_name }}-${{ env.ENVIRONMENT }} --region ${{ env.AWS_REGION }}
 
       - name: Install Gatekeeper with external data enabled
         run: |
