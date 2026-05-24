@@ -44,7 +44,7 @@ output "public_subnets" {
     description = "IDs of the public subnets used by the EKS cluster"
     value       = module.vpc.public_subnets
 }
-output "juice_shop_endpoint" {
-  description = "The public endpoint of the Juice Shop application"
-  value       = data.kubernetes_service.juice_shop.status.0.load_balancer.0.ingress.0.hostname
+output "k8s_service_name" {
+  description = "The name of the Kubernetes Service for the Juice Shop application"
+  value       = kubernetes_service.juice_shop.metadata[0].name
 }
