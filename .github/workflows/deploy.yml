@@ -195,43 +195,10 @@ jobs:
           #   exit 1
           # fi
 
-      # 🚀 BƯỚC BỔ SUNG MỚI (BƯỚC 17): Đẩy file Kubeconfig lên làm Artifact để Job DAST mượn xài
-      - name: 17. Upload Kubeconfig for DAST Job
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: k8s-kubeconfig
-          path: terraform/kubeconfig
-
-  # =========================================================
-  # CHẠY QUÉT ĐỘNG DAST CHO ỨNG DỤNG SAU KHI DEPLOY
-  # =========================================================
-  dast-scan:
-    name: 4. OWASP ZAP DAST Scan
-    runs-on: ubuntu-latest
-    needs: deploy-staging # Đảm bảo cụm Kind deploy xong hoàn toàn mới quét
-    permissions:
-      issues: write
-      contents: read
-    steps:
-      - name: 1. Checkout Source Code
-        uses: actions/checkout@v4
-
-      # 🚀 BƯỚC BỔ SUNG MỚI (BƯỚC 1.1): Tải tệp Kubeconfig từ Job trước về đúng vị trí
-      - name: 1.1 Download Kubeconfig Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: k8s-kubeconfig
-          path: terraform/
-
-      # Khởi động port-forward chạy ngầm bằng file cấu hình vừa tải về
-      - name: 2. Establish Port-Forward Connection for ZAP
-        env:
-          KUBECONFIG: ${{ github.workspace }}/terraform/kubeconfig
-          namespace: nodegoat-staging
+      - name: 17. Establish Port-Forward Connection for ZAP
         run: |
-          echo "--- Đang thiết lập Port-Forward kết nối cụm Kind ---"
-          kubectl port-forward svc/nodegoat-app -n $namespace 4000:4000 &
+          echo "--- Đang thiết lập Port-Forward kết nối cụm Kind tại chỗ ---"
+          kubectl port-forward svc/nodegoat-app -n ${{ env.namespace }} 4000:4000 &
           
           echo "⏳ Chờ 15 giây cho luồng mạng ổn định..."
           sleep 15
@@ -239,25 +206,24 @@ jobs:
           echo "--- Kiểm tra phản hồi cục bộ ---"
           curl -I http://127.0.0.1:4000
 
-      # Sử dụng ĐÚNG Action cũ và Bộ biến môi trường y hệt bản gốc của bạn ông để không lỗi dịch biến
-      - name: 3. Chạy OWASP ZAP Baseline Scan
+      - name: 18. Chạy OWASP ZAP Baseline Scan
         uses: zaproxy/action-full-scan@v0.13.0
         env:
           TEST_USER: ${{ secrets.DAST_TEST_USER }}
           TEST_PASSWORD: ${{ secrets.DAST_TEST_PASSWORD }}
+          TARGET_URL: "http://127.0.0.1:4000" # Định nghĩa biến trực tiếp tại đây cho Action cũ dịch
         with:
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
           token: ${{ secrets.GITHUB_TOKEN }}
-          target: '${{ needs.deploy-staging.outputs.staging_url }}'
+          target: 'http://127.0.0.1:4000' # Chĩa thẳng súng vào cổng mạng vừa được forward thành công
           cmd_options: '-autorun /zap/wrk/dast/owasp_zap.yaml -m 5'
-          
           issue_title: '🚨 DAST Alert: Security vulnerability discovered on Staging'
           fail_action: false 
           artifact_name: 'zap-scan-report'
 
-      - name: 4. Lưu trữ báo cáo (Gather Findings)
+      - name: 19. Lưu trữ báo cáo DAST (Gather Findings)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-scan-report-html-only
-          path: report_html.html
+          path: report_html.html    
