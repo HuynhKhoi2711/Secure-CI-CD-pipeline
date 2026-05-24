@@ -10,11 +10,16 @@
     aws_region: "{{ lookup('env', 'AWS_REGION') }}"
     k8s_namespace: "{{ lookup('env', 'K8S_NAMESPACE') }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
-    environment: "{{ lookup('env', 'ENVIRONMENT') }}"
+
+    k8s_auth_host: "{{ k8s_auth_host | default('') }}"
+    k8s_auth_token: "{{ k8s_auth_token | default('') }}"
 
   tasks:
   - name: Create Kubernetes Namespace for Juice Shop
     kubernetes.core.k8s:
+      host: "{{ k8s_auth_host }}"
+      token: "{{ k8s_auth_token }}"
+      validate_certs: false
       state: present
       definition:
         apiVersion: v1
@@ -24,5 +29,8 @@
 
   - name: Deploy Juice Shop Application using Kubernetes Manifest
     kubernetes.core.k8s:
+      host: "{{ k8s_auth_host }}"
+      token: "{{ k8s_auth_token }}"
+      validate_certs: false
       state: present
       definition: "{{ lookup('template', '../k8s/juice-shop.yaml') }}"
