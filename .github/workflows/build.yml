@@ -164,6 +164,12 @@ jobs:
           cosign sign --yes --key cosign.key ${{ env.IMAGE_NAME }}
           rm cosign.key
 
-      - name: Push Docker Image
-        run: |
-            docker push ${{ env.IMAGE_NAME }}
+      - name: Build và Push Image
+        uses: docker/build-push-action@v5
+        with:
+          push: true 
+          tags: |
+            ${{ env.IMAGE_NAME }}
+            ghcr.io/${{ env.REPO_LOWER }}/juice-shop:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
