@@ -18,8 +18,7 @@ jobs:
       - name: 3. Terraform Init & Validate
         run: |
           cd terraform
-          # 🛠️ ĐÃ SỬA: Thêm cờ -upgrade để dứt điểm lỗi conflict phiên bản plugin Kubernetes (~> 2.24)
-          terraform init -upgrade
+          terraform init -backend=false -input=false -upgrade
           terraform validate
 
   # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST - Nhiệm vụ của Trường) ---
