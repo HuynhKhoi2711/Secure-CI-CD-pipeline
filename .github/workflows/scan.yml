@@ -62,30 +62,30 @@ jobs:
         with:
           sarif_file: semgrep-report.sarif
 
-  # python-scan:
-  #   name: 2b. Bandit (Python SAST)
-  #   needs: terraform-check
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: 1. Checkout Source Code
-  #       uses: actions/checkout@v4
+  python-scan:
+    name: 2b. Bandit (Python SAST)
+    needs: terraform-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
 
-  #     - name: 2. Run Bandit Scan
-  #       run: |
-  #         pip install bandit
-  #         # 🛠️ ĐÃ SỬA: Thêm cờ -x để né thư mục policy/ và .github/, tránh quét nhầm script hạ tầng của ông và Khôi
-  #         bandit -r . -x ./policy,./.github -f json -o bandit-report.json || true
-  #         # Xuất bản định dạng HTML cho con người đọc
-  #         bandit -r . -x ./policy,./.github -f html -o bandit-report.html || true
+      - name: 2. Run Bandit Scan
+        run: |
+          pip install bandit
+          # 🛠️ ĐÃ SỬA: Thêm cờ -x để né thư mục policy/ và .github/, tránh quét nhầm script hạ tầng của ông và Khôi
+          bandit -r . -x ./policy,./.github -f json -o bandit-report.json || true
+          # Xuất bản định dạng HTML cho con người đọc
+          bandit -r . -x ./policy,./.github -f html -o bandit-report.html || true
 
-  #     - name: 3. Upload Bandit Security Reports
-  #       uses: actions/upload-artifact@v4
-  #       if: always() 
-  #       with:
-  #         name: bandit-security-reports
-  #         path: |
-  #           bandit-report.json
-  #           bandit-report.html
+      - name: 3. Upload Bandit Security Reports
+        uses: actions/upload-artifact@v4
+        if: always() 
+        with:
+          name: bandit-security-reports
+          path: |
+            bandit-report.json
+            bandit-report.html
 
   # --- TẠM TẮT GOLANG SCAN VÌ CHƯA CÓ CODE GO (TRÁNH LỖI NO PACKAGES FOUND) ---
   #  golang-scan:
