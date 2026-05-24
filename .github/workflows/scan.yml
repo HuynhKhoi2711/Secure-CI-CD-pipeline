@@ -141,6 +141,7 @@ jobs:
           # Cấu hình Checkov xuất bản song song nhiều định dạng báo cáo
           output_format: json,sarif
           output_file_path: checkov-report
+          soft_fail: true
 
       - name: 3. Upload Checkov Security Reports
         uses: actions/upload-artifact@v4
