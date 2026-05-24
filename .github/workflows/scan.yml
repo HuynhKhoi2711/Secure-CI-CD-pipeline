@@ -108,13 +108,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 2. Run ESLint Scan
-        # Giữ nguyên working-directory của con Juice Shop như bản cũ của ông
-        working-directory: app/NodeJS/juice-shop/
         run: |
-          npm install
+          # BƯỚC 1: Cài đặt plugin bảo mật ở THƯ MỤC GỐC để file eslint.config.js đọc được lập tức
           npm install eslint-plugin-security --no-save
           
-          # Loại bỏ hoàn toàn cờ --ext đã bị khai tử để tránh gãy lệnh
+          # BƯỚC 2: Di chuyển vào thư mục Juice Shop để cài đặt các package phụ thuộc của ứng dụng
+          cd app/NodeJS/juice-shop/
+          npm install
+          
+          # BƯỚC 3: Kích hoạt quét và xuất bản báo cáo thẳng vào thư mục Juice Shop
           npx eslint . -f json -o eslint-report.json || true
           npx eslint . -f html -o eslint-report.html || true
 
