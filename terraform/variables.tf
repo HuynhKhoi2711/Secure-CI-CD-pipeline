@@ -22,3 +22,23 @@ variable "ARN_POLICY" {
   description = "ARN of the IAM Policy to associate with the GitHub Actions principal for cluster access"
   type        = string
 }
+
+variable "APP_IMAGE" {
+  description = "Docker image for the application to deploy on EKS"
+  type        = string
+}
+
+variable "K8S_NAMESPACE" {
+  description = "Kubernetes namespace to deploy the application"
+  type        = string
+}
+
+variable "AWS_ACCESS_KEY_ID" {
+  description = "AWS Access Key ID for GitHub Actions"
+  type        = string
+}
+variable "AWS_SECRET_ACCESS_KEY" {
+  description = "AWS Secret Access Key for GitHub Actions"
+  type        = string
+  sensitive   = true
+}

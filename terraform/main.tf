@@ -125,3 +125,45 @@ module "eks" {
   }
 
 }
+
+# Resource này dùng để kích hoạt Ansible sau khi EKS tạo xong
+resource "null_resource" "ansible_deploy" {
+  # Đảm bảo Ansible chỉ chạy SAU KHI module EKS và các Node Group đã hoàn thành
+  depends_on = [module.eks]
+
+  # Trigger này giúp tái kích hoạt Ansible nếu thông tin Image hoặc Namespace thay đổi
+  triggers = {
+    app_image     = var.APP_IMAGE # Hoặc biến chứa link ảnh Docker của bạn
+    k8s_namespace = var.K8S_NAMESPACE
+    always_run    = timestamp() # Bỏ comment dòng này nếu muốn LẦN NÀO terraform apply cũng chạy lại Ansible
+  }
+
+  provisioner "local-exec" {
+    # Khai báo các biến môi trường trực tiếp cho script chạy
+    environment = {
+      AWS_ACCESS_KEY_ID     = var.AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY = var.AWS_SECRET_ACCESS_KEY
+      AWS_DEFAULT_REGION    = var.aws_region
+      CLUSTER_NAME          = "${local.cluster_name}-${var.environment}"
+      K8S_NAMESPACE         = var.K8S_NAMESPACE
+      APP_IMAGE             = var.APP_IMAGE
+      ENVIRONMENT           = var.environment
+    }
+
+    # Lệnh thực thi chạy Playbook
+    command = <<EOT
+      echo "=== [Terraform Local-Exec] Đang cấu hình Kubeconfig ==="
+      aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $CLUSTER_NAME
+
+      echo "=== [Terraform Local-Exec] Đang trích xuất Token xác thực chuẩn ==="
+      K8S_AUTH_TOKEN=$(aws eks get-token --cluster-name $CLUSTER_NAME --region $AWS_DEFAULT_REGION --output json | jq -r '.status.token')
+      K8S_AUTH_HOST=$(aws eks describe-cluster --name $CLUSTER_NAME --region $AWS_DEFAULT_REGION --output json | jq -r '.cluster.endpoint')
+
+      echo "=== [Terraform Local-Exec] Bắt đầu kích hoạt Ansible Playbook ==="
+      ansible-playbook ${path.cwd}/../ansible/playbooks/deploy-k8s.yml \
+        -i ${path.cwd}/../ansible/inventory.ini \
+        -e "k8s_auth_token=$K8S_AUTH_TOKEN" \
+        -e "k8s_auth_host=$K8S_AUTH_HOST"
+    EOT
+  }
+}

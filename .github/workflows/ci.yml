@@ -238,6 +238,16 @@ jobs:
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
           sudo ./aws/install --update
+
+      - name: Install Ansible and Kubernetes dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install ansible boto3 botocore kubernetes 
+
+      - name: Install Ansible Collections
+        run: |
+          mkdir -p ansible/collections
+          ansible-galaxy collection install amazon.aws kubernetes.core -p ansible/collections
       
       - name: Bootstrap Terraform Backend (S3 & DynamoDB)
         run: |
@@ -277,11 +287,15 @@ jobs:
       
       - name: Set up Environment Variables
         run: |
-          echo TF_VAR_aws_region="${{ env.AWS_REGION }}" >> $GITHUB_ENV
-          echo TF_VAR_cluster_name="${{ env.cluster_name }}" >> $GITHUB_ENV
+          echo "TF_VAR_AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "TF_VAR_AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "TF_VAR_aws_region=${{ env.AWS_REGION }}" >> $GITHUB_ENV
+          echo "TF_VAR_cluster_name=${{ env.cluster_name }}" >> $GITHUB_ENV
           echo "TF_VAR_environment=${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "TF_VAR_ARN_IAM_USER=${{ secrets.ARN_IAM_USER }}" >> $GITHUB_ENV
           echo "TF_VAR_ARN_POLICY=${{ secrets.ARN_POLICY }}" >> $GITHUB_ENV
+          echo "TF_VAR_APP_IMAGE=${{ env.APP_IMAGE }}" >> $GITHUB_ENV
+          echo "TF_VAR_K8S_NAMESPACE=${{ env.K8S_NAMESPACE }}" >> $GITHUB_ENV
           echo "TF_IN_AUTOMATION=1" >> $GITHUB_ENV
 
       - name: Terraform Init
@@ -337,40 +351,7 @@ jobs:
         working-directory: terraform
         if: ${{ steps.tf-plan-eks.outputs.exitcode == '0'}} 
         run: terraform apply -auto-approve
-
-      - name: Install Ansible and Kubernetes dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install ansible boto3 botocore kubernetes 
-
-      - name: Install Ansible Collections
-        run: |
-          mkdir -p ansible/collections
-          ansible-galaxy collection install amazon.aws kubernetes.core -p ansible/collections
         
-      - name: Deploy Application to EKS with Ansible
-        env:
-          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/ansible/collections
-          CLUSTER_NAME: "${{env.cluster_name}}-${{ env.ENVIRONMENT }}"
-          AWS_REGION: "${{ env.AWS_REGION }}"
-          K8S_NAMESPACE: "${{ env.K8S_NAMESPACE }}"
-          APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
-
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
-          
-          K8S_AUTH_TOKEN=$(aws eks get-token --cluster-name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --output json | jq -r '.status.token')
-          K8S_AUTH_HOST=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --output json | jq -r '.cluster.endpoint')
-          
-          export K8S_AUTH_TOKEN="$K8S_AUTH_TOKEN"
-          export K8S_AUTH_HOST="$K8S_AUTH_HOST"
-
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
-          ansible-playbook ansible/playbooks/deploy-k8s.yml -i ansible/inventory.ini \
-            -e "k8s_auth_token=$K8S_AUTH_TOKEN" \
-            -e "k8s_auth_host=$K8S_AUTH_HOST"
 
 
       
