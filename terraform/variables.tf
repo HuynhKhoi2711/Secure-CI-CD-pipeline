@@ -52,4 +52,5 @@ variable "GITHUB_TOKEN" {
 variable "GITHUB_ACTOR" {
   description = "GitHub Actor (username) for GitHub Actions to identify itself when interacting with GitHub API"
   type        = string
+  sensitive   = true
 }
