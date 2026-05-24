@@ -39,10 +39,10 @@ jobs:
         run: |
           semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --sarif -o semgrep-report.sarif || true
 
-      # Chạy quét và xuất bản HTML để ông tải về làm báo cáo
-      - name: 4. Generate Semgrep HTML Report
+      # SỬA TẠI ĐÂY: Chuyển sang xuất dạng text/bảng sạch vì bản Community CLI không hỗ trợ cờ --html
+      - name: 4. Generate Semgrep Text Report
         run: |
-          semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --html -o semgrep-report.html || true
+          semgrep --config=p/security-audit --config=p/nodejs --config=p/owasp-top-ten --text -o semgrep-report.txt || true
 
       # Gom cả 2 file báo cáo nộp lên đám mây lưu trữ
       - name: 5. Upload Semgrep Security Reports
@@ -51,7 +51,7 @@ jobs:
           name: semgrep-security-reports
           path: |
             semgrep-report.sarif
-            semgrep-report.html
+            semgrep-report.txt
 
   python-scan:
     name: 2b. Bandit (Python SAST)
@@ -142,7 +142,7 @@ jobs:
           name: checkov-iac-reports
           path: checkov-report*
 
- # --- QUÉT LỘ LỌT THÔNG TIN NHẠY CẢM (Secrets Scanning - Nhiệm vụ của Trường) ---
+  # --- QUÉT LỘ LỌT THÔNG TIN NHẠY CẢM (Secrets Scanning - Nhiệm vụ của Trường) ---
   secret-scan:
     name: 2f. TruffleHog (Secret Scanning)
     needs: terraform-check
