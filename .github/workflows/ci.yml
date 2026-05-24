@@ -355,13 +355,16 @@ jobs:
       - name: Terraform Apply  (Provision EKS)
         working-directory: terraform
         if: ${{ steps.tf-plan-eks.outputs.exitcode == '0'}} 
-        run: terraform apply -auto-approve
+        run: | 
+          terraform apply -auto-approve
+          kubectl get pods -n isolated-staging
 
       - name: Verify deployment
         working-directory: terraform
         run: |
-          kubectl rollout status deployment/juice-shop -n ${{env.K8S_NAMESPACE}} --timeout=300s
-          kubectl get svc "$SVC_NAME" -n ${{env.K8S_NAMESPACE}} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          
+          kubectl rollout status deployment/juice-shop -n ${{env.K8S_NAMESPACE}} --timeout=120s
+          kubectl get svc juice-shop -n ${{env.K8S_NAMESPACE}} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
   
         
 
