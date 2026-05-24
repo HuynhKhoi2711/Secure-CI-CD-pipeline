@@ -86,15 +86,15 @@ jobs:
 
       - name: 6b. Run Trivy Vulnerability Scanner (HTML Output)
         run: |
-          # 1. Tạo một thư mục tạm trên máy ảo và tải file template HTML của hãng về
+          # 1. Tạo một thư mục tạm trên máy ảo và tải file template HTML xịn của hãng về
           mkdir -p trivy-templates
           curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-templates/html.tpl
           
-          # 2. Sử dụng lệnh Docker chạy Trivy chính chủ để quét và ép render ra file HTML
+          # 2. Sử dụng đúng tên image aquasec/trivy:latest để quét và ép render ra file HTML
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $PWD:/root/workspace \
-            aquasecurity/trivy:latest image \
+            aquasec/trivy:latest image \
             --format template \
             --template "@/root/workspace/trivy-templates/html.tpl" \
             --output /root/workspace/trivy-report.html \
