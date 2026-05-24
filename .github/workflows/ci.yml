@@ -212,12 +212,12 @@ jobs:
   # =========================================================
   # JOB QUẢN LÝ HẠ TẦNG CLOUD AWS (TERRAFORM IN FRASTRUCTURE)
   # =========================================================
-  Infrastructure-provisioning:
+  Infrastructure-provision:
     name: Provision & Deploy to Amazon EKS
+    needs: build-and-test
     runs-on: ubuntu-latest
     env:
       TF_IN_AUTOMATION: "1"
-      ENVIRONMENT: ${{ needs.build-and-test.outputs.current_env }}
       APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
       TF_VAR_environment: ${{ needs.build-and-test.outputs.current_env }}
       
@@ -340,15 +340,11 @@ jobs:
           TF_VAR_cluster_name: ${{ env.cluster_name }}
         if: ${{ steps.tf-plan-eks.outputs.exitcode == '2' || steps.tf-plan-eks.outputs.exitcode == '0' }}
         run: terraform apply tfplan
-  deploy-app-eks:
-    name: Deploy Application to Amazon EKS
-    needs: [Infrastructure-provisioning, build-and-test]
-    runs-on: ubuntu-latest
-    env:
-      ENVIRONMENT: ${{ needs.build-and-test.outputs.current_env }}
-      APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
-      cluster_name: juice-shop-cluster
 
+  Deploy-staging-eks:
+    name: Deploy Application to EKS with Ansible
+    needs: [Infrastructure-provision, build-and-test]
+    runs-on: ubuntu-latest
     steps:
       - name: Install Ansible and Kubernetes dependencies
         run: |
@@ -364,15 +360,13 @@ jobs:
       - name: Deploy Application to EKS with Ansible
         env:
           # Truyền toàn bộ biến môi trường vào cho Ansible đọc
-          CLUSTER_NAME: "juice-shop-cluster-${{ env.ENVIRONMENT }}"
+          CLUSTER_NAME: "${{env.cluster_name}}-${{ env.ENVIRONMENT }}"
           AWS_REGION: "us-east-1"
           APP_IMAGE: ${{ needs.build-and-test.outputs.full_image_name }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           ansible-playbook ansible/playbooks/deploy-k8s.yml -i ansible/inventory.ini
-  
-  
   # dast_scan:
   #   name: OWASP ZAP DAST Scan
   #   runs-on: ubuntu-latest
