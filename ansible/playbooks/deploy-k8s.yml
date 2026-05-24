@@ -12,18 +12,15 @@
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
 
   tasks:
-  - name: Create Kubernetes Namespace for Juice Shop
-    kubernetes.core.k8s:
-      validate_certs: false
-      state: present
-      definition:
-        apiVersion: v1
-        kind: Namespace
-        metadata:
-          name: "{{ k8s_namespace }}"
+  - name: Create Kubernetes Namespace using kubectl
+    command: kubectl create namespace "{{ k8s_namespace }}"
+    ignore_errors: true # Bỏ qua lỗi nếu namespace đã tồn tại từ trước
 
-  - name: Deploy Juice Shop Application using Kubernetes Manifest
-    kubernetes.core.k8s:
-      validate_certs: false
-      state: present
-      definition: "{{ lookup('template', '../k8s/juice-shop.yaml') }}"
+  - name: Render Kubernetes Manifest Template
+    template:
+      src: ../k8s/juice-shop.yaml
+      dest: /tmp/juice-shop-rendered.yaml
+      # Bước này Ansible sẽ tự động điền các biến {{ k8s_namespace }} và {{ app_image }} vào file
+
+  - name: Deploy Juice Shop Application using kubectl
+    command: kubectl apply -f /tmp/juice-shop-rendered.yaml

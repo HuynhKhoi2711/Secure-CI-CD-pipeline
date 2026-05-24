@@ -239,6 +239,11 @@ jobs:
           unzip awscliv2.zip
           sudo ./aws/install --update
 
+      - name: Install Kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
       - name: Install Ansible and Kubernetes dependencies
         run: |
           python3 -m pip install --upgrade pip
