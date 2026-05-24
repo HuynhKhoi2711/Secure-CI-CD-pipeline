@@ -1,4 +1,4 @@
-name: 3. Infrastructure Deploy and Gatekeeper
+name: Infrastructure Deploy and Gatekeeper
 
 on:
   workflow_call:
@@ -106,7 +106,7 @@ jobs:
           echo "TF_VAR_environment=${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "TF_VAR_ARN_IAM_USER=${{ secrets.ARN_IAM_USER }}" >> $GITHUB_ENV
           echo "TF_VAR_ARN_POLICY=${{ secrets.ARN_POLICY }}" >> $GITHUB_ENV
-          echo "TF_VAR_IMAGE_NAME=${{ inputs.image_name }}" >> $GITHUB_ENV
+          echo "TF_VAR_IMAGE_NAME=${{ inputs.full_image_name }}" >> $GITHUB_ENV
           echo "TF_VAR_K8S_NAMESPACE=${{ env.K8S_NAMESPACE }}" >> $GITHUB_ENV
           echo "TF_VAR_GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
           echo "TF_VAR_GITHUB_ACTOR=${{ github.actor }}" >> $GITHUB_ENV
