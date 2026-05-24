@@ -16,7 +16,7 @@
     ignore_errors: true # Bỏ qua lỗi nếu namespace đã tồn tại từ trước
 
   - name: Create Registry Secret for GHCR
-    command: >
+    sheel: >
       kubectl create secret docker-registry ghcr-secret --docker-server=ghcr.io --docker-username=nt524 --docker-password={{ GHCR_PAT }} --namespace="{{ k8s_namespace }}" --dry-run=client -o yaml | kubectl apply -f -
 
   - name: Render Kubernetes Manifest Template
