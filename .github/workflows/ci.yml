@@ -21,6 +21,7 @@ permissions:
   packages: write
   id-token: write
   security-events: write
+  issues: write
 
 jobs:
   # Gọi file Scan chạy đầu tiên (Đã đổi tên cho đẹp)
