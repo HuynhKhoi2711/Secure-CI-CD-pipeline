@@ -87,6 +87,9 @@ jobs:
           kubectl -n gatekeeper-system rollout status deployment/gatekeeper-controller-manager --timeout=180s
           kubectl -n gatekeeper-system rollout status deployment/gatekeeper-audit --timeout=180s
 
+          echo "⏳ Đợi 20 giây để Gatekeeper Webhook khởi động mạng hoàn tất..."
+          sleep 20
+          
       - name: 12. Sync Cosign public key and registry auth into cluster
         env:
           COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
