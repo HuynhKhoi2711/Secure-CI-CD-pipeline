@@ -108,13 +108,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 2. Run ESLint Scan
-        # 🛠️ ĐÃ SỬA: Chuyển đường dẫn làm việc từ NodeGoat cũ sang juice-shop mới
+        # Giữ nguyên working-directory của con Juice Shop như bản cũ của ông
         working-directory: app/NodeJS/juice-shop/
         run: |
           npm install
-          # 🛠️ ĐÃ SỬA: Loại bỏ cờ --ext đã bị khai tử ở ESLint v9 để sửa lỗi gãy lệnh
+          npm install eslint-plugin-security --no-save
+          
+          # Loại bỏ hoàn toàn cờ --ext đã bị khai tử để tránh gãy lệnh
           npx eslint . -f json -o eslint-report.json || true
-          # Tận dụng formatter có sẵn của eslint để xuất ra trang HTML trực quan
           npx eslint . -f html -o eslint-report.html || true
 
       - name: 3. Upload ESLint Security Reports
