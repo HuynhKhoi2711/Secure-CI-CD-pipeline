@@ -154,6 +154,16 @@ jobs:
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
+        
+      - name: Build và Push Image
+        uses: docker/build-push-action@v5
+        with:
+          push: true 
+          tags: |
+            ${{ env.IMAGE_NAME }}
+            ghcr.io/${{ env.REPO_LOWER }}/juice-shop:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Sign the published Docker image
         env:
@@ -164,12 +174,4 @@ jobs:
           cosign sign --yes --key cosign.key ${{ env.IMAGE_NAME }}
           rm cosign.key
 
-      - name: Build và Push Image
-        uses: docker/build-push-action@v5
-        with:
-          push: true 
-          tags: |
-            ${{ env.IMAGE_NAME }}
-            ghcr.io/${{ env.REPO_LOWER }}/juice-shop:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      
