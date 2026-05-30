@@ -1,0 +1,92 @@
+name: Deploy to EKS
+on:
+    workflow_dispatch:
+
+    workflow_call:
+        inputs:
+            full_image_name: 
+                required: true
+                type: string
+            K8S_NAMESPACE:
+                required: true
+                type: string
+            CLUSTER_NAME:
+                required: true
+                type: string
+            AWS_REGION:
+                required: true
+                type: string
+            ENVIRONMENT:
+                required: true
+                type: string
+        outputs:
+            URL:
+                value: ${{ jobs.Deploy-to-eks.outputs.URL }}
+
+permissions:
+    contents: write
+    id-token: write
+    security-events: write
+    packages: read
+env:
+    AWS_REGION: ${{ inputs.AWS_REGION }}
+    K8S_NAMESPACE: ${{ inputs.K8S_NAMESPACE }}
+    cluster_name: ${{ inputs.CLUSTER_NAME }}
+    IMAGE_NAME: ${{ inputs.full_image_name }}
+
+
+jobs:
+    Deploy-to-eks:
+        name: Deploy to Amazon EKS
+        runs-on: ubuntu-latest
+        outputs:
+            URL: ${{ steps.verify.outputs.URL }}
+        steps:
+            - name: Checkout mã nguồn
+              uses: actions/checkout@v4
+
+            - name: Setup AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ env.AWS_REGION }}
+            - name: Install AWS CLI v2
+              run: |
+                  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                  unzip awscliv2.zip
+                  sudo ./aws/install --update
+            - name: Install Kubectl
+              uses: azure/setup-kubectl@v4
+              with:
+                  version: "latest"
+            
+            - name: Update kubeconfig for EKS
+              run: |
+                  aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.cluster_name }}
+
+            - name: Create Namespace
+              run: |
+                  kubectl get ns ${{ env.K8S_NAMESPACE }} || kubectl create namespace ${{ env.K8S_NAMESPACE }}
+
+            - name: Deploy to EKS
+              run: |
+                  sed -i "s|{{k8s_namespace}}|${{ env.K8S_NAMESPACE }}|g" k8s/juice-shop.yaml
+                  sed -i "s|{{app_image}}|${{ env.IMAGE_NAME }}|g" k8s/juice-shop.yaml
+
+                  # Áp dụng manifest đã cập nhật
+                  kubectl apply -f k8s/ -n ${{ env.K8S_NAMESPACE }}
+                  kubectl get pods -n ${{ env.K8S_NAMESPACE }} 
+
+
+            - name: Verify deployment
+              id: verify
+              run: |
+                  kubectl rollout status deployment/juice-shop -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+
+                  RAW_URL="$(kubectl get svc juice-shop-service -n ${{ env.K8S_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+                  # Tự động thay thế chuỗi che khuất "***" bằng chính region đang chạy trong env
+                  URL="http://$(echo "$RAW_URL" | sed "s/\*\*\*/${{ env.AWS_REGION }}/g")"
+
+                  echo "$URL" 
+                  echo "URL=$URL" >> $GITHUB_OUTPUT
